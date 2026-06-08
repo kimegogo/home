@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>邱宅燈光配置互動設計系統 (1212d 版)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>邱宅燈光配置互動設計系統</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons for UI -->
@@ -12,24 +12,34 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       user-select: none;
+      -webkit-user-select: none;
     }
-    /* 自訂捲軸 */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+    /* 隱藏所有全域滾動條，確保單頁體驗 */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ffffff;
     }
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
+    /* 精緻捲軸樣式（僅限左側面板） */
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 5px;
     }
-    ::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 3px;
+    .sidebar-scroll::-webkit-scrollbar-track {
+      background: #f8fafc;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #a8a8a8;
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 10px;
+    }
+    .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
     }
     .canvas-container {
       cursor: default;
+      transition: transform 0.1s ease-out;
     }
     .canvas-container.draw-mode {
       cursor: crosshair;
@@ -40,216 +50,240 @@
     .canvas-container.pan-mode:active {
       cursor: grabbing;
     }
+    /* 點選中元件時的外框動畫 */
+    .selected-element-glow {
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.8), 0 0 12px rgba(99, 102, 241, 0.5);
+      animation: pulse-glow 1.5s infinite;
+    }
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.8); }
+      50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.5), 0 0 8px rgba(99, 102, 241, 0.3); }
+      100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.8); }
+    }
   </style>
 </head>
-<body class="bg-slate-100 text-gray-800 min-h-screen flex flex-col overflow-hidden">
+<body class="text-slate-800 flex flex-col h-screen">
 
-  <!-- 頂部導覽列 -->
-  <header class="bg-slate-900 text-white px-6 py-3 flex items-center justify-between shadow-md z-10 flex-shrink-0">
+  <!-- 頂部導覽列 (固定高度 56px) -->
+  <header class="h-14 bg-slate-900 text-white px-5 flex items-center justify-between shadow-md z-30 flex-shrink-0">
     <div class="flex items-center space-x-3">
-      <div class="bg-amber-500 text-slate-950 p-2 rounded-lg font-bold">
-        <i class="fa-solid fa-lightbulb text-xl animate-pulse"></i>
+      <div class="bg-amber-500 text-slate-950 p-1.5 rounded-lg font-bold flex items-center justify-center">
+        <i class="fa-solid fa-lightbulb text-lg"></i>
       </div>
       <div>
-        <h1 class="text-lg font-bold tracking-wider">邱宅燈光配置互動設計系統</h1>
-        <p class="text-xs text-slate-400">專業配電、開關、燈具排版與線路繪製工具 (1212d 直式格局)</p>
+        <h1 class="text-md font-bold tracking-wider flex items-center">
+          邱宅燈光配置互動設計系統 
+          <span class="ml-2 text-[10px] bg-indigo-600 text-indigo-100 px-1.5 py-0.5 rounded font-normal">100% 一頁完成版</span>
+        </h1>
+        <p class="text-[10px] text-slate-400">專為 Chrome 100% 設計之直式戶型智慧配置畫布</p>
       </div>
     </div>
     
-    <div class="flex items-center space-x-3">
-      <!-- 上傳底圖 -->
-      <label class="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium transition shadow-sm border border-slate-700">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
-        <span>上傳戶型底圖</span>
-        <input type="file" id="bg-upload" accept="image/*" class="hidden">
-      </label>
-      
-      <!-- 重新設定 -->
-      <button id="btn-reset" class="flex items-center space-x-1 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-900/50 px-3 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+    <div class="flex items-center space-x-2">
+      <!-- 重新定位 -->
+      <button id="btn-recenter" class="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm">
+        <i class="fa-solid fa-align-center"></i>
+        <span>重設底圖置中</span>
+      </button>
+
+      <!-- 重置配置 -->
+      <button id="btn-reset" class="flex items-center space-x-1 bg-red-950/40 hover:bg-red-900/40 text-red-300 border border-red-900/40 px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm">
         <i class="fa-solid fa-arrow-rotate-left"></i>
-        <span>重置配置</span>
+        <span>清空重置</span>
       </button>
 
       <!-- 儲存為 JPG -->
-      <button id="btn-export" class="flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm shadow-emerald-900/20">
-        <i class="fa-solid fa-file-image"></i>
+      <button id="btn-export" class="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm shadow-emerald-950/20">
+        <i class="fa-solid fa-file-image text-sm"></i>
         <span>儲存為 JPG 檔案</span>
       </button>
     </div>
   </header>
 
-  <!-- 主要工作區 -->
+  <!-- 主要工作區 (高度自適應剩餘空間，100%無滾動) -->
   <div class="flex flex-1 overflow-hidden relative">
     
-    <!-- 左側工具欄 (元件庫 & 控制) -->
-    <aside class="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 z-10">
-      <!-- 工具切換標籤 -->
-      <div class="border-b border-gray-100 p-4">
-        <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">滑鼠操作模式</h2>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="tool-select" class="flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-medium text-sm transition">
-            <i class="fa-solid fa-arrow-pointer"></i>
-            <span>選擇與拖曳</span>
+    <!-- 左側工具欄 (寬度 310px，固定不變) -->
+    <aside class="w-[310px] bg-slate-50 border-r border-slate-200 flex flex-col flex-shrink-0 z-20">
+      
+      <!-- 滑鼠操作模式與鎖定 -->
+      <div class="p-3 bg-white border-b border-slate-200 space-y-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">滑鼠操作工具</h2>
+          <!-- 鎖定畫布功能 -->
+          <button id="btn-lock-canvas" class="text-[10px] flex items-center space-x-1 px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 transition">
+            <i class="fa-solid fa-unlock text-[8px]" id="icon-lock"></i>
+            <span id="text-lock">未鎖定畫布</span>
           </button>
-          <button id="tool-pan" class="flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium text-sm transition">
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button id="tool-select" class="flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold text-xs transition">
+            <i class="fa-solid fa-arrow-pointer"></i>
+            <span>選取拖曳</span>
+          </button>
+          <button id="tool-pan" class="flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-transparent bg-slate-100 text-slate-600 hover:bg-slate-200 font-semibold text-xs transition">
             <i class="fa-solid fa-hand"></i>
-            <span>平移底圖</span>
+            <span>拖曳底圖</span>
           </button>
         </div>
       </div>
 
-      <!-- 元件庫分組 -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-6">
-        <!-- 元件編輯輔助區 -->
-        <div id="element-actions-box" class="hidden p-3 bg-indigo-50/80 rounded-xl border border-indigo-100 space-y-2">
-          <h4 class="text-xs font-bold text-indigo-800">已選取元件操作</h4>
-          <div class="grid grid-cols-2 gap-2">
-            <button id="btn-clone-el" class="flex items-center justify-center space-x-1 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg transition">
+      <!-- 側邊欄核心功能滾動區 (高度彈性，內滾動) -->
+      <div class="flex-1 overflow-y-auto sidebar-scroll p-3 space-y-4">
+        
+        <!-- 當前選中元件輔助操作 (有選中時動態顯示) -->
+        <div id="element-actions-box" class="hidden p-2.5 bg-indigo-50/90 rounded-xl border border-indigo-100 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-800">選中元件：<span id="txt-selected-type" class="text-indigo-600 font-normal">未定</span></span>
+            <button id="btn-cancel-select" class="text-[10px] text-slate-400 hover:text-slate-600">取消選取</button>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button id="btn-clone-el" class="flex items-center justify-center space-x-1 py-1 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition">
               <i class="fa-solid fa-copy"></i>
               <span>複製元件</span>
             </button>
-            <button id="btn-delete-el" class="flex items-center justify-center space-x-1 py-1.5 bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition">
+            <button id="btn-delete-el" class="flex items-center justify-center space-x-1 py-1 bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition">
               <i class="fa-solid fa-trash-can"></i>
               <span>刪除元件</span>
             </button>
           </div>
         </div>
 
-        <!-- 1. 燈具光源 -->
-        <div>
-          <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
-            <span class="w-1.5 h-4 bg-amber-500 rounded-full mr-2"></span>
-            1. 燈具與光源 (點擊加入)
+        <!-- 1. 燈具與光源庫 -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-sm">
+          <h3 class="text-xs font-bold text-slate-700 mb-2.5 flex items-center justify-between">
+            <span class="flex items-center"><span class="w-1.5 h-3.5 bg-emerald-500 rounded-full mr-1.5"></span>1. 燈具與光源 (點擊加入)</span>
+            <span class="text-[9px] text-slate-400">綠色為嵌燈</span>
           </h3>
-          <div class="grid grid-cols-2 gap-2">
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50/30 transition text-center group" data-type="light-7.5">
-              <svg width="28" height="28" viewBox="0 0 32 32" class="mb-1.5">
-                <circle cx="16" cy="16" r="10" fill="none" stroke="#22c55e" stroke-width="2"/>
-                <line x1="16" y1="6" x2="16" y2="26" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="2,2"/>
-                <line x1="6" y1="16" x2="26" y2="16" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="2,2"/>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-emerald-300 hover:bg-emerald-50/20 transition text-center group" data-type="light-9">
+              <svg width="22" height="22" viewBox="0 0 26 26" class="mb-1">
+                <circle cx="13" cy="13" r="9" fill="none" stroke="#22c55e" stroke-width="2"/>
+                <circle cx="13" cy="13" r="3" fill="#22c55e"/>
               </svg>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-amber-700">7.5CM 嵌燈</span>
-              <span class="text-[9px] text-gray-400 mt-0.5">綠色十字圓</span>
+              <span class="text-[11px] font-bold text-slate-700">9CM 嵌燈</span>
+              <span class="text-[8px] text-slate-400">綠心圓燈</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50/30 transition text-center group" data-type="light-9">
-              <svg width="28" height="28" viewBox="0 0 32 32" class="mb-1.5">
-                <circle cx="16" cy="16" r="12" fill="none" stroke="#22c55e" stroke-width="2"/>
-                <circle cx="16" cy="16" r="4" fill="#22c55e"/>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-emerald-300 hover:bg-emerald-50/20 transition text-center group" data-type="light-7.5">
+              <svg width="22" height="22" viewBox="0 0 24 24" class="mb-1">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="#22c55e" stroke-width="1.8"/>
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#22c55e" stroke-width="1" stroke-dasharray="1.5,1.5"/>
+                <line x1="2" y1="12" x2="22" y2="12" stroke="#22c55e" stroke-width="1" stroke-dasharray="1.5,1.5"/>
               </svg>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-amber-700">9CM 嵌燈</span>
-              <span class="text-[9px] text-gray-400 mt-0.5">綠心圓燈</span>
+              <span class="text-[11px] font-bold text-slate-700">7.5CM 嵌燈</span>
+              <span class="text-[8px] text-slate-400">綠色十字圓</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50/30 transition text-center group" data-type="light-12">
-              <svg width="28" height="28" viewBox="0 0 32 32" class="mb-1.5">
-                <circle cx="16" cy="16" r="13" fill="none" stroke="#4b5563" stroke-width="2.5"/>
-                <circle cx="16" cy="16" r="7" fill="none" stroke="#4b5563" stroke-width="1.5"/>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition text-center group" data-type="light-12">
+              <svg width="22" height="22" viewBox="0 0 30 30" class="mb-1">
+                <circle cx="15" cy="15" r="10" fill="none" stroke="#4b5563" stroke-width="2"/>
+                <circle cx="15" cy="15" r="4" fill="none" stroke="#4b5563" stroke-width="1"/>
               </svg>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-amber-700">12CM 嵌燈</span>
-              <span class="text-[9px] text-gray-400 mt-0.5">雙心圓燈</span>
+              <span class="text-[11px] font-bold text-slate-700">12CM 嵌燈</span>
+              <span class="text-[8px] text-slate-400">灰色雙心圓</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50/30 transition text-center group" data-type="light-pendant">
-              <svg width="28" height="28" viewBox="0 0 32 32" class="mb-1.5">
-                <circle cx="16" cy="16" r="10" fill="none" stroke="#4b5563" stroke-width="2"/>
-                <line x1="16" y1="6" x2="16" y2="26" stroke="#4b5563" stroke-width="2"/>
-                <line x1="6" y1="16" x2="26" y2="16" stroke="#4b5563" stroke-width="2"/>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition text-center group" data-type="light-pendant">
+              <svg width="22" height="22" viewBox="0 0 30 30" class="mb-1">
+                <circle cx="15" cy="15" r="8" fill="none" stroke="#4b5563" stroke-width="1.8"/>
+                <line x1="15" y1="3" x2="15" y2="27" stroke="#4b5563" stroke-width="1.8"/>
+                <line x1="3" y1="15" x2="27" y2="15" stroke="#4b5563" stroke-width="1.8"/>
               </svg>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-amber-700">吊燈</span>
-              <span class="text-[9px] text-gray-400 mt-0.5">放射圓</span>
+              <span class="text-[11px] font-bold text-slate-700">吊燈</span>
+              <span class="text-[8px] text-slate-400">放射交叉圓</span>
             </button>
           </div>
         </div>
 
-        <!-- 2. 開關控制 -->
-        <div>
-          <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
-            <span class="w-1.5 h-4 bg-blue-500 rounded-full mr-2"></span>
-            2. 開關面板 (點擊加入)
+        <!-- 2. 開關面板庫 -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-sm">
+          <h3 class="text-xs font-bold text-slate-700 mb-2.5 flex items-center justify-between">
+            <span class="flex items-center"><span class="w-1.5 h-3.5 bg-blue-500 rounded-full mr-1.5"></span>2. 開關面板 (點擊加入)</span>
+            <span class="text-[9px] text-red-500">紅色為新設</span>
           </h3>
-          <div class="grid grid-cols-2 gap-2">
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition text-center group" data-type="switch-s">
-              <div class="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 font-semibold text-sm mb-1 bg-white">S</div>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-blue-700">原有單切</span>
-              <span class="text-[9px] text-gray-400">灰色單切 S</span>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-blue-300 hover:bg-blue-50/20 transition text-center group" data-type="switch-s">
+              <div class="w-7 h-7 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-[11px] mb-1 bg-white">S</div>
+              <span class="text-[11px] font-bold text-slate-700">原有單切</span>
+              <span class="text-[8px] text-slate-400">灰色 S</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition text-center group" data-type="switch-s3">
-              <div class="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 font-semibold text-sm mb-1 bg-white relative">
-                S<span class="text-[8px] absolute top-1 right-2 font-bold">3</span>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-blue-300 hover:bg-blue-50/20 transition text-center group" data-type="switch-s3">
+              <div class="w-7 h-7 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-[11px] mb-1 bg-white relative">
+                S<span class="text-[7px] absolute top-0 right-1 font-bold">3</span>
               </div>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-blue-700">原有雙切</span>
-              <span class="text-[9px] text-gray-400">灰色雙切 S3</span>
+              <span class="text-[11px] font-bold text-slate-700">原有雙切</span>
+              <span class="text-[8px] text-slate-400">灰色 S3</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50/30 transition text-center group" data-type="switch-new-s">
-              <div class="w-9 h-9 rounded-full border border-red-200 flex items-center justify-center text-red-500 font-bold text-sm mb-1 bg-red-50/50">S</div>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-red-700">新增單切</span>
-              <span class="text-[9px] text-red-400">紅色單切 S</span>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-red-300 hover:bg-red-50/20 transition text-center group" data-type="switch-new-s">
+              <div class="w-7 h-7 rounded-full border border-red-200 flex items-center justify-center text-red-500 font-bold text-[11px] mb-1 bg-red-50/50">S</div>
+              <span class="text-[11px] font-bold text-slate-700">新增單切</span>
+              <span class="text-[8px] text-red-400">紅色 S</span>
             </button>
 
-            <button class="add-item-btn flex flex-col items-center justify-center p-2.5 border border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50/30 transition text-center group" data-type="switch-new-s3">
-              <div class="w-9 h-9 rounded-full border border-red-200 flex items-center justify-center text-red-500 font-bold text-sm mb-1 bg-red-50/50 relative">
-                S<span class="text-[8px] absolute top-1 right-2 font-bold">3</span>
+            <button class="add-item-btn flex flex-col items-center justify-center p-2 border border-slate-100 rounded-lg hover:border-red-300 hover:bg-red-50/20 transition text-center group" data-type="switch-new-s3">
+              <div class="w-7 h-7 rounded-full border border-red-200 flex items-center justify-center text-red-500 font-bold text-[11px] mb-1 bg-red-50/50 relative">
+                S<span class="text-[7px] absolute top-0 right-1 font-bold">3</span>
               </div>
-              <span class="text-xs font-semibold text-gray-700 group-hover:text-red-700">新增雙切</span>
-              <span class="text-[9px] text-red-400">紅色雙切 S3</span>
+              <span class="text-[11px] font-bold text-slate-700">新增雙切</span>
+              <span class="text-[8px] text-red-400">紅色 S3</span>
             </button>
           </div>
         </div>
 
-        <!-- 3. 配線與條燈 -->
-        <div>
-          <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
-            <span class="w-1.5 h-4 bg-orange-500 rounded-full mr-2"></span>
-            3. 配電線路與燈條
+        <!-- 3. 配線與燈條 -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-sm">
+          <h3 class="text-xs font-bold text-slate-700 mb-2 flex items-center">
+            <span class="w-1.5 h-3.5 bg-orange-500 rounded-full mr-1.5"></span>
+            3. 畫配電線路與燈條
           </h3>
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <!-- 單切線路 -->
-            <button id="btn-draw-single" class="draw-tool-btn w-full flex items-center justify-between p-2.5 border border-gray-200 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition text-left">
+            <button id="btn-draw-single" class="draw-tool-btn w-full flex items-center justify-between p-2 border border-slate-100 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition text-left">
               <div class="flex items-center space-x-2">
-                <svg width="30" height="20" class="flex-shrink-0">
-                  <path d="M 0,10 Q 7,2 15,10 T 30,10" fill="none" stroke="#1f2937" stroke-width="2"/>
+                <svg width="24" height="16" class="flex-shrink-0">
+                  <path d="M 0,8 Q 6,2 12,8 T 24,8" fill="none" stroke="#1f2937" stroke-width="1.8"/>
                 </svg>
                 <div>
-                  <div class="text-xs font-semibold text-gray-700">單切線路 (黑色正弦波)</div>
-                  <div class="text-[9px] text-gray-400">點擊開關與燈具依序連線</div>
+                  <div class="text-[11px] font-bold text-slate-700">單切線路 (黑色波浪線)</div>
+                  <div class="text-[8px] text-slate-400">選定起點元件後進行拉線</div>
                 </div>
               </div>
             </button>
 
             <!-- 雙切線路 -->
-            <button id="btn-draw-double" class="draw-tool-btn w-full flex items-center justify-between p-2.5 border border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50/30 transition text-left">
+            <button id="btn-draw-double" class="draw-tool-btn w-full flex items-center justify-between p-2 border border-slate-100 rounded-lg hover:border-red-200 hover:bg-red-50/10 transition text-left">
               <div class="flex items-center space-x-2">
-                <svg width="30" height="20" class="flex-shrink-0">
-                  <path d="M 0,10 Q 7,2 15,10 T 30,10" fill="none" stroke="#ef4444" stroke-width="2"/>
+                <svg width="24" height="16" class="flex-shrink-0">
+                  <path d="M 0,8 Q 6,2 12,8 T 24,8" fill="none" stroke="#ef4444" stroke-width="1.8"/>
                 </svg>
                 <div>
-                  <div class="text-xs font-semibold text-gray-700">雙切線路 (紅色正弦波)</div>
-                  <div class="text-[9px] text-gray-400">雙控開關迴路連線</div>
+                  <div class="text-[11px] font-bold text-slate-700">雙切線路 (紅色波浪線)</div>
+                  <div class="text-[8px] text-slate-400">雙切迴路專用正弦波</div>
                 </div>
               </div>
             </button>
 
             <!-- 鋁條燈 -->
-            <button id="btn-draw-strip-orange" class="draw-tool-btn w-full flex items-center justify-between p-2.5 border border-gray-200 rounded-xl hover:border-orange-400 hover:bg-orange-50/30 transition text-left">
+            <button id="btn-draw-strip-orange" class="draw-tool-btn w-full flex items-center justify-between p-2 border border-slate-100 rounded-lg hover:border-orange-200 hover:bg-orange-50/10 transition text-left">
               <div class="flex items-center space-x-2">
-                <div class="w-8 h-2.5 bg-orange-500 rounded border border-orange-600 flex-shrink-0"></div>
+                <div class="w-6 h-2 bg-orange-500 rounded flex-shrink-0"></div>
                 <div>
-                  <div class="text-xs font-semibold text-gray-700">鋁條燈 (橘色粗線)</div>
-                  <div class="text-[9px] text-gray-400">點選兩點繪製嵌入條燈</div>
+                  <div class="text-[11px] font-bold text-slate-700">鋁條燈 (橘色粗實線)</div>
+                  <div class="text-[8px] text-slate-400">點擊兩點繪製嵌入條燈</div>
                 </div>
               </div>
             </button>
 
             <!-- 罩板燈 -->
-            <button id="btn-draw-strip-yellow" class="draw-tool-btn w-full flex items-center justify-between p-2.5 border border-gray-200 rounded-xl hover:border-amber-400 hover:bg-amber-50/30 transition text-left">
+            <button id="btn-draw-strip-yellow" class="draw-tool-btn w-full flex items-center justify-between p-2 border border-slate-100 rounded-lg hover:border-amber-200 hover:bg-amber-50/10 transition text-left">
               <div class="flex items-center space-x-2">
-                <div class="w-8 h-2.5 bg-amber-300 rounded border border-amber-400 flex-shrink-0"></div>
+                <div class="w-6 h-2 bg-amber-300 rounded border border-amber-400 flex-shrink-0"></div>
                 <div>
-                  <div class="text-xs font-semibold text-gray-700">罩板燈 (黃色粗線)</div>
-                  <div class="text-[9px] text-gray-400">間接照明反射燈槽</div>
+                  <div class="text-[11px] font-bold text-slate-700">罩板燈 (黃色粗實線)</div>
+                  <div class="text-[8px] text-slate-400">間接照明發光燈槽</div>
                 </div>
               </div>
             </button>
@@ -257,61 +291,56 @@
         </div>
       </div>
 
-      <!-- 底圖控制調整 -->
-      <div class="border-t border-gray-200 p-4 bg-gray-50 space-y-3">
-        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">背景底圖顯示調整</h4>
+      <!-- 底部控制調整區 (固定底部，不佔大空間) -->
+      <div class="border-t border-slate-200 p-3 bg-white space-y-2.5 flex-shrink-0">
         <div>
-          <div class="flex justify-between text-xs text-gray-500 mb-1">
-            <span>底圖透明度</span>
-            <span id="val-opacity">90%</span>
+          <div class="flex justify-between text-[11px] text-slate-500 mb-1">
+            <span class="font-bold">戶型底圖透明度</span>
+            <span id="val-opacity" class="font-mono">90%</span>
           </div>
-          <input type="range" id="bg-opacity" min="0" max="100" value="90" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+          <input type="range" id="bg-opacity" min="10" max="100" value="90" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600">
         </div>
-        <div class="flex justify-between text-xs">
-          <button id="btn-fit-screen" class="text-indigo-600 hover:text-indigo-800 font-medium">
-            <i class="fa-solid fa-expand mr-1"></i>滿版顯示
+        <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+          <button id="btn-toggle-grid" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center">
+            <i class="fa-solid fa-border-all mr-1.5"></i>網格吸附 (開啟)
           </button>
-          <button id="btn-toggle-grid" class="text-gray-600 hover:text-gray-800 font-medium">
-            <i class="fa-solid fa-border-all mr-1"></i>網格吸附 (開啟)
-          </button>
+          
+          <!-- 手動上傳按鈕備用 -->
+          <label class="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer flex items-center">
+            <i class="fa-solid fa-upload mr-1 text-slate-400"></i>替換底圖
+            <input type="file" id="bg-upload" accept="image/*" class="hidden">
+          </label>
         </div>
       </div>
     </aside>
 
-    <!-- 中央主要畫布區 -->
-    <main class="flex-1 bg-white flex items-center justify-center overflow-hidden relative">
+    <!-- 中央主要畫布區 (高度與寬度自適應) -->
+    <main class="flex-1 bg-slate-200/50 flex items-center justify-center overflow-hidden relative">
       <!-- 快捷操作提示框 -->
-      <div class="absolute top-4 left-4 bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-20 flex items-center space-x-3 border border-slate-700 backdrop-blur-sm pointer-events-none transition-all duration-300" id="tip-bar">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-        <span id="tip-text">提示：點擊元件可拖曳；點選任何元件按 Delete 即可刪除。</span>
+      <div class="absolute top-3 left-3 bg-slate-900/90 text-white text-[11px] px-3.5 py-2 rounded-xl shadow-md z-30 flex items-center space-x-2.5 border border-slate-800 backdrop-blur-sm pointer-events-none transition-all duration-300" id="tip-bar">
+        <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+        <span id="tip-text">提示：點擊元件可選中並移動位置；雙擊空白處可取消選取。</span>
       </div>
 
       <!-- 線路控制浮動選單 (僅在繪圖模式中顯示) -->
-      <div id="draw-actions" class="absolute top-4 right-4 bg-white px-4 py-2.5 rounded-xl shadow-lg z-20 hidden items-center space-x-2 border border-gray-200">
-        <span class="text-xs font-semibold text-gray-600 mr-2" id="draw-mode-label">正在繪製：單切線路</span>
-        <button id="btn-draw-cancel" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs font-medium transition">
+      <div id="draw-actions" class="absolute top-3 right-3 bg-white px-3 py-2 rounded-xl shadow-lg z-30 hidden items-center space-x-1.5 border border-slate-200">
+        <span class="text-xs font-bold text-slate-600 mr-2" id="draw-mode-label">正在配線</span>
+        <button id="btn-draw-cancel" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-bold transition">
           取消
         </button>
-        <button id="btn-draw-done" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-xs font-medium transition">
-          結束此線
+        <button id="btn-draw-done" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition">
+          完成線路
         </button>
-      </div>
-
-      <!-- 快捷鍵說明 -->
-      <div class="absolute bottom-4 left-4 text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-200/50 pointer-events-none space-y-0.5">
-        <div>💡 操作提醒：</div>
-        <div>• 雙擊畫布空白處可取消選取。</div>
-        <div>• 按住滑鼠中鍵、空白鍵，或使用「平移底圖」工具可拖曳移動整張平面圖。</div>
       </div>
 
       <!-- 視窗容器 -->
       <div class="w-full h-full overflow-hidden flex items-center justify-center" id="viewport">
-        <!-- 畫布核心容器 (直式比例符合 1212d.jpg) -->
+        <!-- 畫布核心容器 (直式比例符合 1212d.jpg 格式：寬 800, 高 960) -->
         <div id="canvas-container" class="canvas-container relative bg-white shadow-2xl origin-center select-none" style="width: 800px; height: 960px;">
           <!-- 1. 背景底圖層 (直接使用 1212d.jpg) -->
-          <img id="layout-bg-img" src="1212d.jpg" class="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity" style="opacity: 0.9;" onerror="this.src='https://placehold.co/800x960/ffffff/94a3b8?text=1212d.jpg+Load+Error'; showToast('未偵測到 1212d.jpg 實體檔案，請點擊上傳底圖進行載入。', 'warning')">
+          <img id="layout-bg-img" src="1212d.jpg" class="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity" style="opacity: 0.9;" onerror="handleBgImageError()">
           
-          <!-- 2. 向量線路圖層 -->
+          <!-- 2. 配線與連線向量圖層 -->
           <canvas id="wiring-canvas" class="absolute inset-0 pointer-events-none" width="800" height="960"></canvas>
 
           <!-- 3. HTML 元件互動控制層 -->
@@ -322,19 +351,19 @@
   </div>
 
   <!-- 彈出式訊息提示 -->
-  <div id="toast" class="fixed bottom-6 right-6 transform translate-y-10 opacity-0 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl z-50 flex items-center space-x-3 transition-all duration-300 border border-slate-800">
-    <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
-    <span class="text-sm font-medium" id="toast-text">儲存成功</span>
+  <div id="toast" class="fixed bottom-4 right-4 transform translate-y-10 opacity-0 bg-slate-950 text-white px-4 py-2.5 rounded-xl shadow-2xl z-50 flex items-center space-x-2.5 transition-all duration-300 border border-slate-800">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+    <span class="text-xs font-semibold" id="toast-text">設定成功</span>
   </div>
 
   <!-- ==================== 核心 JavaScript ==================== -->
   <script>
-    // 配合 1212d.jpg 設計圖位置做高精度預配置
+    // 預載 1212d.jpg 的高精度格局與位置座標
     let state = {
       appId: 'chiu-lighting-designer-1212d',
-      zoom: 0.85, // 初始縮放，讓直式大圖更完美呈現
+      zoom: 1.0, 
       panX: 0,
-      panY: -40,
+      panY: 0,
       isPanning: false,
       startPanX: 0,
       startPanY: 0,
@@ -344,8 +373,9 @@
       gridSize: 10,
       bgImageSrc: '1212d.jpg',
       bgOpacity: 0.9,
-      
-      // 設計元件數據 (完美切合 1212d.jpg 格局位置)
+      isLocked: false, // 是否鎖定畫布
+
+      // 設計元件數據
       elements: [], 
       connections: [], 
       
@@ -365,22 +395,27 @@
     const toastText = document.getElementById('toast-text');
     const tipText = document.getElementById('tip-text');
     const tipBar = document.getElementById('tip-bar');
-    const elementActionsBox = document.getElementById('element-actions-box');
     
-    // UI 控制按鈕
+    // UI 控制
     const toolSelect = document.getElementById('tool-select');
     const toolPan = document.getElementById('tool-pan');
     const bgOpacitySlider = document.getElementById('bg-opacity');
     const valOpacity = document.getElementById('val-opacity');
     const btnToggleGrid = document.getElementById('btn-toggle-grid');
-    const btnFitScreen = document.getElementById('btn-fit-screen');
+    const btnRecenter = document.getElementById('btn-recenter');
     const btnReset = document.getElementById('btn-reset');
     const btnExport = document.getElementById('btn-export');
     const bgUpload = document.getElementById('bg-upload');
+    const btnLockCanvas = document.getElementById('btn-lock-canvas');
+    
+    // 元件選取編輯盒
+    const elementActionsBox = document.getElementById('element-actions-box');
+    const txtSelectedType = document.getElementById('txt-selected-type');
     const btnCloneEl = document.getElementById('btn-clone-el');
     const btnDeleteEl = document.getElementById('btn-delete-el');
+    const btnCancelSelect = document.getElementById('btn-cancel-select');
     
-    // 繪製工具按鈕
+    // 繪製控制
     const btnDrawSingle = document.getElementById('btn-draw-single');
     const btnDrawDouble = document.getElementById('btn-draw-double');
     const btnDrawStripOrange = document.getElementById('btn-draw-strip-orange');
@@ -390,18 +425,54 @@
     const btnDrawCancel = document.getElementById('btn-draw-cancel');
     const btnDrawDone = document.getElementById('btn-draw-done');
 
-    // 初始化
-    window.addEventListener('DOMContentLoaded', () => {
-      loadInitial1212dElements();
-      renderAll();
+    // 初始化啟動
+    window.onload = function() {
+      loadInitialElements();
       setupEventListeners();
-      showToast('1212d 設計底圖已載入！', 'info');
-    });
+      
+      // 確保底圖加載後進行完美屏幕自適應
+      setTimeout(() => {
+        autoFitLayoutToViewport();
+      }, 150);
+      
+      showToast('1212d 燈光配置系統已就緒！', 'info');
+    };
 
-    function loadInitial1212dElements() {
-      // 根據 1212d.jpg 格局繪製燈具與開關位置
+    // 視窗尺寸改變時，自動調整畫布縮放，維持在中央且不產生網頁捲軸
+    window.onresize = function() {
+      if (!state.isLocked) {
+        autoFitLayoutToViewport();
+      }
+    };
+
+    // 自動計算最完美的 Zoom 與 Pan（100% Fit，不產生任何全網頁捲軸）
+    function autoFitLayoutToViewport() {
+      const viewRect = viewport.getBoundingClientRect();
+      const padding = 30; // 邊緣留白
+      const availWidth = viewRect.width - padding;
+      const availHeight = viewRect.height - padding;
+
+      // 畫布物理設計大小是 800 x 960
+      const zoomX = availWidth / 800;
+      const zoomY = availHeight / 960;
+      
+      // 取其小者，保證能完整塞在視窗內
+      let bestZoom = Math.min(zoomX, zoomY);
+      
+      // 限制最大縮放不要過大
+      bestZoom = Math.min(bestZoom, 1.1);
+      
+      state.zoom = bestZoom;
+      state.panX = 0;
+      state.panY = 0; // 完美置中
+      
+      updateViewport();
+    }
+
+    // 載入與 1212d.jpg 格局完美吻合之初始數據
+    function loadInitialElements() {
       state.elements = [
-        // === 頂部區域房間 (原客廳/陽台配置在 rotated 後的位置) ===
+        // === 頂部區域房間 (手稿上排) ===
         { id: 'el-l1', type: 'light-9', x: 254, y: 310 },
         { id: 'el-l2', type: 'light-9', x: 310, y: 310 },
         { id: 'el-l3', type: 'light-9', x: 366, y: 310 },
@@ -449,125 +520,89 @@
         { id: 'el-sw12', type: 'switch-new-s3', x: 295, y: 710 },
       ];
 
-      // 預載 1212d.jpg 配置線路
+      // 預設手繪連線
       state.connections = [
-        // 頂部房間波浪路徑 1
         {
           id: 'con-1',
           type: 'single-wiring',
           fromElementId: 'el-sw1',
           toElementId: 'el-l1',
-          points: [
-            { x: 210, y: 250 },
-            { x: 254, y: 310 },
-            { x: 310, y: 310 },
-            { x: 366, y: 310 }
-          ]
+          points: [{ x: 210, y: 250 }, { x: 254, y: 310 }, { x: 310, y: 310 }, { x: 366, y: 310 }]
         },
-        // 頂部房間波浪路徑 2
         {
           id: 'con-2',
           type: 'single-wiring',
           fromElementId: 'el-sw3',
           toElementId: 'el-l4',
-          points: [
-            { x: 260, y: 250 },
-            { x: 310, y: 380 },
-            { x: 508, y: 310 },
-            { x: 564, y: 310 },
-            { x: 620, y: 310 }
-          ]
+          points: [{ x: 260, y: 250 }, { x: 310, y: 380 }, { x: 508, y: 310 }, { x: 564, y: 310 }, { x: 620, y: 310 }]
         },
-        // 廚房波浪路徑
         {
           id: 'con-3',
           type: 'single-wiring',
           fromElementId: 'el-sw7',
           toElementId: 'el-l9',
-          points: [
-            { x: 410, y: 490 },
-            { x: 450, y: 520 },
-            { x: 524, y: 520 },
-            { x: 598, y: 520 }
-          ]
+          points: [{ x: 410, y: 490 }, { x: 450, y: 520 }, { x: 524, y: 520 }, { x: 598, y: 520 }]
         },
-        // 臥房雙切波浪路徑
         {
           id: 'con-4',
           type: 'double-wiring',
           fromElementId: 'el-sw10',
           toElementId: 'el-l14',
-          points: [
-            { x: 686, y: 795 },
-            { x: 614, y: 720 },
-            { x: 614, y: 650 },
-            { x: 474, y: 650 },
-            { x: 474, y: 720 }
-          ]
+          points: [{ x: 686, y: 795 }, { x: 614, y: 720 }, { x: 614, y: 650 }, { x: 474, y: 650 }, { x: 474, y: 720 }]
         },
-        // 衛浴連線
         {
           id: 'con-5',
           type: 'single-wiring',
           fromElementId: 'el-sw8',
           toElementId: 'el-l12',
-          points: [
-            { x: 290, y: 590 },
-            { x: 195, y: 540 }
-          ]
+          points: [{ x: 290, y: 590 }, { x: 195, y: 540 }]
         },
-        // 左下角多功能空間波浪線路
         {
           id: 'con-6',
           type: 'single-wiring',
           fromElementId: 'el-sw12',
           toElementId: 'el-l18',
-          points: [
-            { x: 295, y: 710 },
-            { x: 322, y: 795 },
-            { x: 226, y: 795 },
-            { x: 226, y: 725 },
-            { x: 130, y: 725 },
-            { x: 130, y: 865 },
-            { x: 226, y: 865 }
-          ]
+          points: [{ x: 295, y: 710 }, { x: 322, y: 795 }, { x: 226, y: 795 }, { x: 226, y: 725 }, { x: 130, y: 725 }, { x: 130, y: 865 }, { x: 226, y: 865 }]
         },
-        // 預設頂端鋁條燈 (橘粗線)
         {
           id: 'con-7',
           type: 'strip-orange',
-          points: [
-            { x: 280, y: 240 },
-            { x: 580, y: 240 }
-          ]
+          points: [{ x: 280, y: 240 }, { x: 580, y: 240 }]
         },
-        // 預設左側鋁條燈 (橘粗線)
         {
           id: 'con-8',
           type: 'strip-orange',
-          points: [
-            { x: 103, y: 350 },
-            { x: 103, y: 490 }
-          ]
+          points: [{ x: 103, y: 350 }, { x: 103, y: 490 }]
         }
       ];
     }
 
-    // 全畫布渲染
+    // 當 1212d.jpg 底圖不存在時的優雅防護機制
+    function handleBgImageError() {
+      layoutBgImg.src = 'https://placehold.co/800x960/ffffff/94a3b8?text=1212d.jpg+Not+Found';
+      showToast('本機環境未發現 1212d.jpg。請使用右下方【替換底圖】自行載入圖片。', 'warning');
+    }
+
+    // ==================== 畫布核心渲染與縮放 ====================
+
     function renderAll() {
       renderElements();
       renderWiring();
       updateViewport();
     }
 
-    // 渲染 HTML 元件
     function renderElements() {
       elementsLayer.innerHTML = '';
       
       state.elements.forEach(el => {
         const elDiv = document.createElement('div');
         elDiv.id = el.id;
-        elDiv.className = `absolute select-none transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all duration-150 ${state.selectedElementId === el.id ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110 z-30' : 'hover:scale-105 z-20'}`;
+        
+        // 判斷是否為選中元件，並加入特殊發光效果 selected-element-glow
+        const isSelected = state.selectedElementId === el.id;
+        const selectedClass = isSelected ? 'selected-element-glow z-30' : 'hover:scale-105 z-20';
+        
+        elDiv.className = `absolute select-none transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all duration-150 ${selectedClass}`;
         elDiv.style.left = `${el.x}px`;
         elDiv.style.top = `${el.y}px`;
 
@@ -604,11 +639,11 @@
           `;
         } else if (el.type === 'switch-s') {
           content = `
-            <div class="w-8 h-8 rounded-full border border-gray-400 bg-white shadow-sm flex items-center justify-center text-gray-600 font-semibold text-xs">S</div>
+            <div class="w-8 h-8 rounded-full border border-slate-400 bg-white shadow-sm flex items-center justify-center text-slate-600 font-bold text-xs">S</div>
           `;
         } else if (el.type === 'switch-s3') {
           content = `
-            <div class="w-8 h-8 rounded-full border border-gray-400 bg-white shadow-sm flex items-center justify-center text-gray-600 font-semibold text-xs relative">
+            <div class="w-8 h-8 rounded-full border border-slate-400 bg-white shadow-sm flex items-center justify-center text-slate-600 font-bold text-xs relative">
               S<span class="text-[7px] absolute top-0.5 right-1.5 font-bold">3</span>
             </div>
           `;
@@ -629,15 +664,21 @@
         elementsLayer.appendChild(elDiv);
       });
 
-      // 檢查是否顯示輔助操作盒
+      // 更新側邊欄輔助操作盒
       if (state.selectedElementId) {
+        const el = state.elements.find(e => e.id === state.selectedElementId);
+        if (el) {
+          let name = "未知";
+          if (el.type.includes('light')) name = el.type === 'light-9' ? '9CM 嵌燈' : (el.type === 'light-7.5' ? '7.5CM 嵌燈' : (el.type === 'light-12' ? '12CM 嵌燈' : '吊燈'));
+          if (el.type.includes('switch')) name = el.type.includes('new') ? '新增開關' : '原有開關';
+          txtSelectedType.innerText = name;
+        }
         elementActionsBox.classList.remove('hidden');
       } else {
         elementActionsBox.classList.add('hidden');
       }
     }
 
-    // 渲染配線與燈條的 Canvas
     function renderWiring() {
       wiringCtx.clearRect(0, 0, wiringCanvas.width, wiringCanvas.height);
       
@@ -687,7 +728,7 @@
         }
       });
 
-      // 繪製拉線中的動態預覽
+      // 拉線動態
       if (state.activeDrawTool && state.tempWiringPoints.length > 0) {
         const isDouble = state.activeDrawTool === 'double-wiring';
         const isOrange = state.activeDrawTool === 'strip-orange';
@@ -709,7 +750,7 @@
         }
       }
 
-      // 繪製吸附綠點
+      // 智慧吸附提示
       if (state.hoveredSnapPoint) {
         wiringCtx.fillStyle = '#22c55e';
         wiringCtx.beginPath();
@@ -752,10 +793,12 @@
       ctx.stroke();
     }
 
-    // 縮放平移
+    // 更新 Canvas Transforms
     function updateViewport() {
       container.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
     }
+
+    // ==================== 事件與選單操作綁定 ====================
 
     function setupEventListeners() {
       // 點擊新增元件
@@ -770,38 +813,60 @@
       toolSelect.addEventListener('click', () => setMouseMode('select'));
       toolPan.addEventListener('click', () => setMouseMode('pan'));
 
-      // 雙擊空白取消選擇
-      container.addEventListener('dblclick', () => {
-        state.selectedElementId = null;
-        renderElements();
+      // 雙擊畫布空白取消選擇
+      container.addEventListener('dblclick', (e) => {
+        if (e.target === container || e.target === layoutBgImg) {
+          state.selectedElementId = null;
+          renderElements();
+        }
       });
 
-      // 滾輪縮放
+      // 鎖定畫布功能切換 (防止畫布亂跑、誤觸平移)
+      btnLockCanvas.addEventListener('click', () => {
+        state.isLocked = !state.isLocked;
+        if (state.isLocked) {
+          btnLockCanvas.innerHTML = '<i class="fa-solid fa-lock text-[8px]"></i> <span>已鎖定畫布</span>';
+          btnLockCanvas.className = "text-[10px] flex items-center space-x-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 font-bold";
+          setMouseMode('select'); // 強制切換為選擇模式
+          showToast('畫布已鎖定，無法平移或縮放底圖。', 'info');
+        } else {
+          btnLockCanvas.innerHTML = '<i class="fa-solid fa-unlock text-[8px]"></i> <span>未鎖定畫布</span>';
+          btnLockCanvas.className = "text-[10px] flex items-center space-x-1 px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 transition";
+          showToast('畫布已解鎖。', 'info');
+        }
+      });
+
+      // 滾輪縮放 (加上鎖定防護)
       viewport.addEventListener('wheel', (e) => {
+        if (state.isLocked) return;
         e.preventDefault();
-        const zoomIntensity = 0.08;
+        const zoomIntensity = 0.05;
         const rect = viewport.getBoundingClientRect();
         const mouseX = e.clientX - rect.left - rect.width / 2;
         const mouseY = e.clientY - rect.top - rect.height / 2;
         
         const oldZoom = state.zoom;
         if (e.deltaY < 0) {
-          state.zoom = Math.min(state.zoom + zoomIntensity, 3.0);
+          state.zoom = Math.min(state.zoom + zoomIntensity, 2.0); // 上限 2.0 倍
         } else {
-          state.zoom = Math.max(state.zoom - zoomIntensity, 0.4);
+          state.zoom = Math.max(state.zoom - zoomIntensity, 0.4); // 下限 0.4 倍
         }
         
         state.panX -= mouseX * (state.zoom / oldZoom - 1);
         state.panY -= mouseY * (state.zoom / oldZoom - 1);
+        
+        // 邊界防護：防止底圖飄得太遠
+        restrictPanBoundaries();
         updateViewport();
       }, { passive: false });
 
-      // 平移底圖
+      // 滑鼠平移底圖 (加上鎖定與防拖走機制)
       viewport.addEventListener('mousedown', (e) => {
+        if (state.isLocked) return;
         if (e.button === 1 || state.activeTool === 'pan') {
           state.isPanning = true;
           state.startPanX = e.clientX - state.panX;
-          state.startPanY = e.clientY - state.startPanY;
+          state.startPanY = e.clientY - state.panY;
           viewport.style.cursor = 'grabbing';
           e.preventDefault();
         }
@@ -811,6 +876,8 @@
         if (state.isPanning) {
           state.panX = e.clientX - state.startPanX;
           state.panY = e.clientY - state.startPanY;
+          
+          restrictPanBoundaries();
           updateViewport();
         }
       });
@@ -822,7 +889,16 @@
         }
       });
 
-      // 線路繪製 click
+      // 限制拖曳範圍，不讓畫布離開可視範圍之外
+      function restrictPanBoundaries() {
+        const viewRect = viewport.getBoundingClientRect();
+        const limitX = viewRect.width * 0.6;
+        const limitY = viewRect.height * 0.6;
+        state.panX = Math.max(-limitX, Math.min(limitX, state.panX));
+        state.panY = Math.max(-limitY, Math.min(limitY, state.panY));
+      }
+
+      // 畫配電線路交互
       container.addEventListener('click', (e) => {
         if (!state.activeDrawTool) return;
         
@@ -846,9 +922,9 @@
           if (state.tempWiringPoints.length === 0) {
             if (snap && snap.elementId) {
               state.tempWiringPoints.push({ x: targetX, y: targetY, elementId: snap.elementId });
-              updateTipText("已選定起點，請點擊轉折點，最後點選終點燈具或開關完成線路。");
+              updateTipText("已設定起點，請點選轉折點，最後點選終點元件完成線路。");
             } else {
-              showToast("請點選一個開關或燈具作為配線起點", "warning");
+              showToast("配線起點必須落在開關或燈具元件上！", "warning");
               return;
             }
           } else {
@@ -862,7 +938,7 @@
         } else if (state.activeDrawTool === 'strip-orange' || state.activeDrawTool === 'strip-yellow') {
           if (state.tempWiringPoints.length === 0) {
             state.tempWiringPoints.push({ x: targetX, y: targetY });
-            updateTipText("已設定起點，請在畫布上點選終點。");
+            updateTipText("起點已就緒，請在畫布上點選條燈終點。");
           } else {
             state.tempWiringPoints.push({ x: targetX, y: targetY });
             saveStripConnection();
@@ -900,11 +976,12 @@
         renderWiring();
       });
 
-      // 配電按鈕綁定
+      // 繪線工具模式切換
       btnDrawSingle.addEventListener('click', () => startDrawMode('single-wiring'));
       btnDrawDouble.addEventListener('click', () => startDrawMode('double-wiring'));
       btnDrawStripOrange.addEventListener('click', () => startDrawMode('strip-orange'));
       btnDrawStripYellow.addEventListener('click', () => startDrawMode('strip-yellow'));
+      
       btnDrawCancel.addEventListener('click', cancelDrawMode);
       btnDrawDone.addEventListener('click', () => {
         if (state.activeDrawTool === 'single-wiring' || state.activeDrawTool === 'double-wiring') {
@@ -914,34 +991,46 @@
         }
       });
 
-      // 透明度 slider
+      // 透明度 slider 聯動
       bgOpacitySlider.addEventListener('input', (e) => {
         state.bgOpacity = e.target.value / 100;
         valOpacity.innerText = `${e.target.value}%`;
         layoutBgImg.style.opacity = state.bgOpacity;
       });
 
+      // 網格吸附
       btnToggleGrid.addEventListener('click', () => {
         state.snapToGrid = !state.snapToGrid;
-        btnToggleGrid.innerHTML = state.snapToGrid ? '<i class="fa-solid fa-border-all mr-1"></i>網格吸附 (開啟)' : '<i class="fa-solid fa-border-all mr-1"></i>網格吸附 (關閉)';
-        btnToggleGrid.className = state.snapToGrid ? 'text-indigo-600 hover:text-indigo-800 font-medium' : 'text-gray-400 hover:text-gray-600 font-medium';
-        showToast(state.snapToGrid ? "已啟用網格吸附" : "已停用網格吸附", "info");
+        btnToggleGrid.innerHTML = state.snapToGrid ? '<i class="fa-solid fa-border-all mr-1.5"></i>網格吸附 (開啟)' : '<i class="fa-solid fa-border-all mr-1.5"></i>網格吸附 (關閉)';
+        btnToggleGrid.className = state.snapToGrid ? 'text-indigo-600 hover:text-indigo-800 font-bold flex items-center' : 'text-slate-400 hover:text-slate-600 font-bold flex items-center';
+        showToast(state.snapToGrid ? "網格對齊已啟用" : "網格對齊已關閉", "info");
       });
 
-      btnFitScreen.addEventListener('click', resetView);
+      // 點擊置中對焦
+      btnRecenter.addEventListener('click', () => {
+        autoFitLayoutToViewport();
+        showToast("已重置底圖位置，完美置中對焦！", "success");
+      });
 
-      // 複製與刪除元件按鈕事件 (適合行動裝置)
+      // 複製、刪除元件 (適合行動端與滑鼠快速點選)
       btnCloneEl.addEventListener('click', cloneSelectedElement);
       btnDeleteEl.addEventListener('click', deleteSelectedElement);
+      btnCancelSelect.addEventListener('click', () => {
+        state.selectedElementId = null;
+        renderElements();
+      });
 
+      // 清空重置
       btnReset.addEventListener('click', () => {
-        if (confirm("確定要重置所有配置並回復至 1212d 初始配置嗎？")) {
-          loadInitial1212dElements();
+        if (confirm("確定要清除所有自訂燈具與重新佈線嗎？")) {
+          loadInitialElements();
+          state.selectedElementId = null;
           renderAll();
-          showToast("配置已回復預設 1212d 佈局", "info");
+          showToast("配置已回復至 1212d 初始樣貌", "info");
         }
       });
 
+      // 上傳底圖
       bgUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -949,36 +1038,37 @@
           reader.onload = function(evt) {
             state.bgImageSrc = evt.target.result;
             layoutBgImg.src = state.bgImageSrc;
-            layoutBgImg.style.display = 'block';
-            showToast("新底圖上傳成功！", "success");
-            resetView();
+            showToast("底圖替換成功！", "success");
+            autoFitLayoutToViewport();
           };
           reader.readAsDataURL(file);
         }
       });
 
-      // 鍵盤刪除功能
+      // 鍵盤 Delete / Backspace 快速刪除元件
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Delete' || e.key === 'Backspace') {
           deleteSelectedElement();
         }
       });
 
+      // 儲存為高畫質 JPEG
       btnExport.addEventListener('click', exportLayoutAsJPG);
     }
 
-    // 新增元件
+    // ==================== 畫布元件操作 ====================
+
     function addNewElement(type) {
+      // 在畫布中心偏上位置生成 (避免擋住主臥)
       const x = 400;
       const y = 480;
       const id = `el-${Date.now()}`;
       state.elements.push({ id, type, x, y });
       state.selectedElementId = id;
       renderAll();
-      showToast("已成功加入元件！您可以任意拖曳它。", "success");
+      showToast("元件加入成功，您可以直接拖曳其位置！", "success");
     }
 
-    // 複製元件
     function cloneSelectedElement() {
       if (!state.selectedElementId) return;
       const origin = state.elements.find(el => el.id === state.selectedElementId);
@@ -987,27 +1077,27 @@
         state.elements.push({
           id,
           type: origin.type,
-          x: origin.x + 20, // 稍微偏移，避免完全重疊
-          y: origin.y + 20
+          x: Math.min(800 - 30, origin.x + 20), 
+          y: Math.min(960 - 30, origin.y + 20)
         });
         state.selectedElementId = id;
         renderAll();
-        showToast("元件已複製成功", "success");
+        showToast("元件複製成功！", "success");
       }
     }
 
-    // 刪除元件
     function deleteSelectedElement() {
       if (state.selectedElementId) {
         state.elements = state.elements.filter(el => el.id !== state.selectedElementId);
+        // 同步刪除連線
         state.connections = state.connections.filter(c => c.fromElementId !== state.selectedElementId && c.toElementId !== state.selectedElementId);
         state.selectedElementId = null;
         renderAll();
-        showToast("元件與相關線路已刪除", "info");
+        showToast("元件及其對應配線已成功刪除！", "info");
       }
     }
 
-    // 元件拖曳 handle
+    // 元件拖曳事件處理
     function handleElementMouseDown(e, element) {
       if (state.activeTool === 'pan' || state.activeDrawTool) return;
       e.stopPropagation();
@@ -1026,9 +1116,11 @@
         let newX = origX + dx;
         let newY = origY + dy;
 
+        // 畫布邊界碰撞保護
         newX = Math.max(15, Math.min(800 - 15, newX));
         newY = Math.max(15, Math.min(960 - 15, newY));
 
+        // 網格吸附計算
         if (state.snapToGrid) {
           newX = Math.round(newX / state.gridSize) * state.gridSize;
           newY = Math.round(newY / state.gridSize) * state.gridSize;
@@ -1054,6 +1146,7 @@
       window.addEventListener('mouseup', onMouseUp);
     }
 
+    // 元件吸附感應
     function getSnapPoint(x, y) {
       const snapRadius = 20; 
       for (let i = 0; i < state.elements.length; i++) {
@@ -1066,15 +1159,17 @@
       return null;
     }
 
+    // ==================== 繪線模式狀態轉換 ====================
+
     function setMouseMode(mode) {
       state.activeTool = mode;
       toolSelect.className = mode === 'select' 
-        ? "flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-medium text-sm transition"
-        : "flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium text-sm transition";
+        ? "flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold text-xs transition"
+        : "flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-transparent bg-slate-100 text-slate-600 hover:bg-slate-200 font-semibold text-xs transition";
 
       toolPan.className = mode === 'pan'
-        ? "flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-medium text-sm transition"
-        : "flex items-center justify-center space-x-2 py-2 px-3 rounded-lg border-2 border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium text-sm transition";
+        ? "flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold text-xs transition"
+        : "flex items-center justify-center space-x-1.5 py-2 px-2 rounded-lg border-2 border-transparent bg-slate-100 text-slate-600 hover:bg-slate-200 font-semibold text-xs transition";
 
       if (mode === 'pan') {
         container.className = "canvas-container pan-mode relative bg-white shadow-2xl origin-center select-none";
@@ -1085,6 +1180,10 @@
     }
 
     function startDrawMode(tool) {
+      if (state.isLocked) {
+        showToast("畫布已鎖定。請先點選左上角【解鎖】再繪製線路！", "warning");
+        return;
+      }
       setMouseMode('select');
       state.activeDrawTool = tool;
       state.tempWiringPoints = [];
@@ -1094,16 +1193,16 @@
       let title = "";
       if (tool === 'single-wiring') {
         title = "正在繪製：單切線路 (黑色波浪)";
-        updateTipText("第一步：點選「起點」開關或燈具；第二步：依序點擊折點與連線終點。");
+        updateTipText("請先點擊起點元件，接著點擊各轉折點，最後點擊終點元件完成。");
       } else if (tool === 'double-wiring') {
         title = "正在繪製：雙切線路 (紅色波浪)";
-        updateTipText("請點選雙控開關迴路起點，依序連線。");
+        updateTipText("請點選雙控起點與終點元件完成雙切配線。");
       } else if (tool === 'strip-orange') {
-        title = "正在繪製：鋁條燈 (橘粗線)";
-        updateTipText("點選第一個點（起點）後，點選第二個點（終點）拉出條燈。");
+        title = "正在繪製：鋁條燈 (橘色粗線)";
+        updateTipText("在畫布上依序點選起點與終點，即可產生嵌入型鋁條燈。");
       } else if (tool === 'strip-yellow') {
-        title = "正在繪製：罩板燈 (黃粗線)";
-        updateTipText("點選兩點定位反射間接照明燈條。");
+        title = "正在繪製：罩板燈 (黃色粗線)";
+        updateTipText("點選兩點即可拉出間接反光罩板燈條。");
       }
       drawModeLabel.innerText = title;
     }
@@ -1113,14 +1212,14 @@
       state.tempWiringPoints = [];
       container.classList.remove('draw-mode');
       drawActions.style.display = 'none';
-      updateTipText("提示：點擊元件可拖曳；點選任何元件按 Delete 即可刪除。");
+      updateTipText("提示：點擊元件可選中並移動位置；雙擊空白處可取消選取。");
       renderWiring();
     }
 
     function saveWiringConnection() {
       const validPoints = state.tempWiringPoints.filter(p => !p.isTemp);
       if (validPoints.length < 2) {
-        showToast("配線折點不足", "warning");
+        showToast("配線節點不足，已取消連線。", "warning");
         cancelDrawMode();
         return;
       }
@@ -1128,7 +1227,7 @@
       const lastPt = validPoints[validPoints.length - 1];
 
       if (!firstPt.elementId || !lastPt.elementId) {
-        showToast("配線的起點和終點必須都連結到元件上", "warning");
+        showToast("配電線路的頭尾必須完美連在開關或燈具元件上！", "warning");
         cancelDrawMode();
         return;
       }
@@ -1140,7 +1239,7 @@
         toElementId: lastPt.elementId,
         points: validPoints.map(p => ({ x: p.x, y: p.y }))
       });
-      showToast("配電路徑已儲存！", "success");
+      showToast("新配電連線路徑已成功儲存！", "success");
       cancelDrawMode();
     }
 
@@ -1155,16 +1254,8 @@
         type: state.activeDrawTool,
         points: [validPoints[0], validPoints[1]]
       });
-      showToast("裝飾條燈配置完成！", "success");
+      showToast("裝飾條燈配置已完成！", "success");
       cancelDrawMode();
-    }
-
-    function resetView() {
-      state.zoom = 0.85;
-      state.panX = 0;
-      state.panY = -40;
-      updateViewport();
-      showToast("已回復預設滿版視野", "info");
     }
 
     function updateTipText(text) {
@@ -1176,11 +1267,11 @@
       toastText.innerText = text;
       const icon = toast.querySelector('i');
       if (type === 'success') {
-        icon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+        icon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
       } else if (type === 'warning') {
-        icon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+        icon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-base";
       } else if (type === 'info') {
-        icon.className = "fa-solid fa-circle-info text-blue-400 text-lg";
+        icon.className = "fa-solid fa-circle-info text-blue-400 text-base";
       }
 
       toast.classList.remove('opacity-0', 'translate-y-10');
@@ -1192,20 +1283,22 @@
       }, 3500);
     }
 
-    // 輸出儲存成純白底 JPG 檔案
-    function exportLayoutAsJPG() {
-      showToast("正在準備輸出高解析配置圖...", "info");
+    // ==================== 高畫質 JPEG 匯出 ====================
 
+    function exportLayoutAsJPG() {
+      showToast("正在準備輸出配置圖...", "info");
+
+      // 建立完全同等 800 x 960 比例的離屏 Canvas 進行純白底合成
       const exportCanvas = document.createElement('canvas');
       exportCanvas.width = 800;
       exportCanvas.height = 960;
       const ctx = exportCanvas.getContext('2d');
 
-      // 1. 純白底底色
+      // 1. 設定純白底色 (符合網頁白色底色與列印需求)
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 800, 960);
 
-      const renderLayers = () => {
+      const renderExportLayers = () => {
         ctx.globalAlpha = 1.0;
 
         // 3. 繪製線路與燈條
@@ -1362,28 +1455,28 @@
           ctx.restore();
         });
 
-        // 匯出 JPG 下載
+        // 5. 導出並下載圖片
         const imgURL = exportCanvas.toDataURL('image/jpeg', 0.95);
         const link = document.createElement('a');
-        link.download = `邱宅_燈光配置設計圖_${Date.now()}.jpg`;
+        link.download = `邱宅_1212d_燈光配置設計圖_${Date.now()}.jpg`;
         link.href = imgURL;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        showToast("JPG 檔案已下載成功！", "success");
+        showToast("高解析 JPG 配置圖已順利下載！", "success");
       };
 
-      // 2. 渲染 1212d.jpg 底圖作為背景 (利用 Image 物件)
+      // 2. 加載背景底圖
       const bgImg = new Image();
-      bgImg.crossOrigin = 'anonymous'; // 避免跨域
+      bgImg.crossOrigin = 'anonymous'; // 避免跨域阻擋
       bgImg.onload = function() {
         ctx.globalAlpha = state.bgOpacity;
         ctx.drawImage(bgImg, 0, 0, 800, 960);
-        renderLayers();
+        renderExportLayers();
       };
       bgImg.onerror = function() {
-        // 若載入失敗，仍繪製圖形
-        renderLayers();
+        // 如果載入底圖出錯，僅輸出白底與向量配置
+        renderExportLayers();
       };
       bgImg.src = state.bgImageSrc;
     }
