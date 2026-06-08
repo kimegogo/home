@@ -44,6 +44,9 @@
     .canvas-container.draw-mode {
       cursor: crosshair;
     }
+    .canvas-container.freehand-mode {
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>') 2 14, crosshair;
+    }
     .canvas-container.pan-mode {
       cursor: grab;
     }
@@ -73,7 +76,7 @@
       <div>
         <h1 class="text-md font-bold tracking-wider flex items-center">
           邱宅燈光配置互動設計系統 
-          <span class="ml-2 text-[10px] bg-indigo-600 text-indigo-100 px-1.5 py-0.5 rounded font-normal">100% 一頁完成版</span>
+          <span class="ml-2 text-[10px] bg-indigo-600 text-indigo-100 px-1.5 py-0.5 rounded font-normal">空白創作 + 畫筆註記版</span>
         </h1>
         <p class="text-[10px] text-slate-400">專為 Chrome 100% 設計之直式戶型智慧配置畫布</p>
       </div>
@@ -89,7 +92,7 @@
       <!-- 重置配置 -->
       <button id="btn-reset" class="flex items-center space-x-1 bg-red-950/40 hover:bg-red-900/40 text-red-300 border border-red-900/40 px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm">
         <i class="fa-solid fa-arrow-rotate-left"></i>
-        <span>清空重置</span>
+        <span>清空畫布</span>
       </button>
 
       <!-- 儲存為 JPG -->
@@ -289,6 +292,49 @@
             </button>
           </div>
         </div>
+
+        <!-- 4. 自由畫筆與註記工具 (新增功能) -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-sm space-y-2.5">
+          <h3 class="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span class="flex items-center"><span class="w-1.5 h-3.5 bg-indigo-500 rounded-full mr-1.5"></span>4. 自由手繪與註記</span>
+            <span id="badge-drawing-status" class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">未啟用</span>
+          </h3>
+          
+          <!-- 啟動畫筆按鈕 -->
+          <button id="btn-draw-freehand" class="w-full flex items-center justify-center space-x-2 py-2 px-3 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition text-xs font-semibold text-slate-600">
+            <i class="fa-solid fa-pen-nib"></i>
+            <span>開啟「畫筆註記」模式</span>
+          </button>
+
+          <!-- 畫筆調色盤與粗細 (當啟動時可用) -->
+          <div class="space-y-2 text-[11px]">
+            <!-- 顏色 -->
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">筆跡顏色：</span>
+              <div class="flex space-x-1.5">
+                <button class="color-picker-btn w-5 h-5 rounded-full bg-red-500 ring-2 ring-red-500 ring-offset-1" data-color="#ef4444"></button>
+                <button class="color-picker-btn w-5 h-5 rounded-full bg-slate-900 ring-offset-1" data-color="#0f172a"></button>
+                <button class="color-picker-btn w-5 h-5 rounded-full bg-blue-600 ring-offset-1" data-color="#2563eb"></button>
+                <button class="color-picker-btn w-5 h-5 rounded-full bg-emerald-600 ring-offset-1" data-color="#059669"></button>
+              </div>
+            </div>
+            <!-- 粗細 -->
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">筆跡粗細：</span>
+              <div class="flex items-center space-x-2 flex-1 ml-4">
+                <input type="range" id="pen-width-slider" min="2" max="10" value="4" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                <span id="val-pen-width" class="font-mono text-slate-600">4px</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 清除畫筆註記按鈕 -->
+          <button id="btn-clear-drawings" class="w-full py-1.5 border border-red-200 text-red-500 bg-red-50/50 hover:bg-red-50 hover:text-red-600 rounded-lg text-[11px] font-semibold transition flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-eraser"></i>
+            <span>清除所有畫筆註記</span>
+          </button>
+        </div>
+
       </div>
 
       <!-- 底部控制調整區 (固定底部，不佔大空間) -->
@@ -340,8 +386,8 @@
           <!-- 1. 背景底圖層 (直接使用 1212d.jpg) -->
           <img id="layout-bg-img" src="1212d.jpg" class="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity" style="opacity: 0.9;" onerror="handleBgImageError()">
           
-          <!-- 2. 配線與連線向量圖層 -->
-          <canvas id="wiring-canvas" class="absolute inset-0 pointer-events-none" width="800" height="960"></canvas>
+          <!-- 2. 配線、連線與自由畫筆向量圖層 -->
+          <canvas id="wiring-canvas" class="absolute inset-0 pointer-events-none animate-fade-in" width="800" height="960"></canvas>
 
           <!-- 3. HTML 元件互動控制層 -->
           <div id="elements-layer" class="absolute inset-0"></div>
@@ -358,7 +404,7 @@
 
   <!-- ==================== 核心 JavaScript ==================== -->
   <script>
-    // 預載 1212d.jpg 的高精度格局與位置座標
+    // 系統核心狀態
     let state = {
       appId: 'chiu-lighting-designer-1212d',
       zoom: 1.0, 
@@ -367,17 +413,24 @@
       isPanning: false,
       startPanX: 0,
       startPanY: 0,
-      activeTool: 'select', 
-      activeDrawTool: null, 
+      activeTool: 'select', // 'select' | 'pan'
+      activeDrawTool: null, // 'single-wiring' | 'double-wiring' | 'strip-orange' | 'strip-yellow' | 'freehand'
       snapToGrid: true,
       gridSize: 10,
       bgImageSrc: '1212d.jpg',
       bgOpacity: 0.9,
-      isLocked: false, // 是否鎖定畫布
+      isLocked: false, 
+
+      // 畫筆註記狀態
+      penColor: '#ef4444',
+      penWidth: 4,
+      isDrawingFreehand: false,
+      drawings: [], // 儲存所有已完成的手寫路徑: { id, color, width, points: [{x, y}] }
+      currentDrawing: null, // 當前正在手寫的路徑
 
       // 設計元件數據
-      elements: [], 
-      connections: [], 
+      elements: [], // 初始為「空白」！不載入任何預設燈具
+      connections: [], // 初始為「空白」！不載入任何預設配線與燈條
       
       selectedElementId: null,
       tempWiringPoints: [], 
@@ -408,6 +461,13 @@
     const bgUpload = document.getElementById('bg-upload');
     const btnLockCanvas = document.getElementById('btn-lock-canvas');
     
+    // 自由畫筆控制
+    const btnDrawFreehand = document.getElementById('btn-draw-freehand');
+    const penWidthSlider = document.getElementById('pen-width-slider');
+    const valPenWidth = document.getElementById('val-pen-width');
+    const btnClearDrawings = document.getElementById('btn-clear-drawings');
+    const badgeDrawingStatus = document.getElementById('badge-drawing-status');
+    
     // 元件選取編輯盒
     const elementActionsBox = document.getElementById('element-actions-box');
     const txtSelectedType = document.getElementById('txt-selected-type');
@@ -427,160 +487,51 @@
 
     // 初始化啟動
     window.onload = function() {
-      loadInitialElements();
+      // 載入空白底圖
+      state.elements = [];
+      state.connections = [];
+      state.drawings = [];
+      
       setupEventListeners();
       
-      // 確保底圖加載後進行完美屏幕自適應
+      // 自適應對焦
       setTimeout(() => {
         autoFitLayoutToViewport();
       }, 150);
       
-      showToast('1212d 燈光配置系統已就緒！', 'info');
+      showToast('1212d 空白畫板與註記工具已就緒！', 'info');
     };
 
-    // 視窗尺寸改變時，自動調整畫布縮放，維持在中央且不產生網頁捲軸
+    // 視窗變更自適應
     window.onresize = function() {
       if (!state.isLocked) {
         autoFitLayoutToViewport();
       }
     };
 
-    // 自動計算最完美的 Zoom 與 Pan（100% Fit，不產生任何全網頁捲軸）
+    // 自動計算 Zoom 與 置中
     function autoFitLayoutToViewport() {
       const viewRect = viewport.getBoundingClientRect();
-      const padding = 30; // 邊緣留白
+      const padding = 30; 
       const availWidth = viewRect.width - padding;
       const availHeight = viewRect.height - padding;
 
-      // 畫布物理設計大小是 800 x 960
       const zoomX = availWidth / 800;
       const zoomY = availHeight / 960;
       
-      // 取其小者，保證能完整塞在視窗內
       let bestZoom = Math.min(zoomX, zoomY);
-      
-      // 限制最大縮放不要過大
-      bestZoom = Math.min(bestZoom, 1.1);
+      bestZoom = Math.min(bestZoom, 1.1); // 上限
       
       state.zoom = bestZoom;
       state.panX = 0;
-      state.panY = 0; // 完美置中
+      state.panY = 0; 
       
       updateViewport();
     }
 
-    // 載入與 1212d.jpg 格局完美吻合之初始數據
-    function loadInitialElements() {
-      state.elements = [
-        // === 頂部區域房間 (手稿上排) ===
-        { id: 'el-l1', type: 'light-9', x: 254, y: 310 },
-        { id: 'el-l2', type: 'light-9', x: 310, y: 310 },
-        { id: 'el-l3', type: 'light-9', x: 366, y: 310 },
-        { id: 'el-l4', type: 'light-9', x: 508, y: 310 },
-        { id: 'el-l5', type: 'light-9', x: 564, y: 310 },
-        { id: 'el-l6', type: 'light-9', x: 620, y: 310 },
-        { id: 'el-l7', type: 'light-9', x: 310, y: 380 },
-        { id: 'el-l8', type: 'light-9', x: 564, y: 380 },
-        { id: 'el-lp1', type: 'light-pendant', x: 232, y: 405 },
-        // 頂部開關
-        { id: 'el-sw1', type: 'switch-s3', x: 210, y: 250 },
-        { id: 'el-sw2', type: 'switch-s3', x: 235, y: 250 },
-        { id: 'el-sw3', type: 'switch-s3', x: 260, y: 250 },
-        { id: 'el-sw4', type: 'switch-new-s3', x: 366, y: 450 },
-        { id: 'el-sw5', type: 'switch-new-s3', x: 390, y: 450 },
-        { id: 'el-sw6', type: 'switch-new-s3', x: 414, y: 450 },
-        
-        // === 中間廚房與玄關通道 ===
-        { id: 'el-l9', type: 'light-9', x: 450, y: 520 },
-        { id: 'el-l10', type: 'light-9', x: 524, y: 520 },
-        { id: 'el-l11', type: 'light-9', x: 598, y: 520 },
-        { id: 'el-sw7', type: 'switch-new-s', x: 410, y: 490 },
-
-        // === 中間偏左衛浴 ===
-        { id: 'el-l12', type: 'light-12', x: 195, y: 540 },
-        { id: 'el-l13', type: 'light-12', x: 150, y: 612 },
-        { id: 'el-sw8', type: 'switch-new-s', x: 290, y: 590 },
-        { id: 'el-sw9', type: 'switch-new-s', x: 290, y: 610 },
-
-        // === 下方臥室 ===
-        { id: 'el-l14', type: 'light-9', x: 474, y: 650 },
-        { id: 'el-l15', type: 'light-9', x: 614, y: 650 },
-        { id: 'el-l16', type: 'light-9', x: 474, y: 720 },
-        { id: 'el-l17', type: 'light-9', x: 614, y: 720 },
-        { id: 'el-sw10', type: 'switch-new-s3', x: 686, y: 795 },
-        { id: 'el-sw11', type: 'switch-new-s', x: 485, y: 810 },
-
-        // === 左下角多功能房 ===
-        { id: 'el-l18', type: 'light-9', x: 130, y: 725 },
-        { id: 'el-l19', type: 'light-9', x: 226, y: 725 },
-        { id: 'el-l20', type: 'light-9', x: 226, y: 795 },
-        { id: 'el-l21', type: 'light-9', x: 130, y: 865 },
-        { id: 'el-l22', type: 'light-9', x: 226, y: 865 },
-        { id: 'el-l23', type: 'light-9', x: 322, y: 795 },
-        { id: 'el-sw12', type: 'switch-new-s3', x: 295, y: 710 },
-      ];
-
-      // 預設手繪連線
-      state.connections = [
-        {
-          id: 'con-1',
-          type: 'single-wiring',
-          fromElementId: 'el-sw1',
-          toElementId: 'el-l1',
-          points: [{ x: 210, y: 250 }, { x: 254, y: 310 }, { x: 310, y: 310 }, { x: 366, y: 310 }]
-        },
-        {
-          id: 'con-2',
-          type: 'single-wiring',
-          fromElementId: 'el-sw3',
-          toElementId: 'el-l4',
-          points: [{ x: 260, y: 250 }, { x: 310, y: 380 }, { x: 508, y: 310 }, { x: 564, y: 310 }, { x: 620, y: 310 }]
-        },
-        {
-          id: 'con-3',
-          type: 'single-wiring',
-          fromElementId: 'el-sw7',
-          toElementId: 'el-l9',
-          points: [{ x: 410, y: 490 }, { x: 450, y: 520 }, { x: 524, y: 520 }, { x: 598, y: 520 }]
-        },
-        {
-          id: 'con-4',
-          type: 'double-wiring',
-          fromElementId: 'el-sw10',
-          toElementId: 'el-l14',
-          points: [{ x: 686, y: 795 }, { x: 614, y: 720 }, { x: 614, y: 650 }, { x: 474, y: 650 }, { x: 474, y: 720 }]
-        },
-        {
-          id: 'con-5',
-          type: 'single-wiring',
-          fromElementId: 'el-sw8',
-          toElementId: 'el-l12',
-          points: [{ x: 290, y: 590 }, { x: 195, y: 540 }]
-        },
-        {
-          id: 'con-6',
-          type: 'single-wiring',
-          fromElementId: 'el-sw12',
-          toElementId: 'el-l18',
-          points: [{ x: 295, y: 710 }, { x: 322, y: 795 }, { x: 226, y: 795 }, { x: 226, y: 725 }, { x: 130, y: 725 }, { x: 130, y: 865 }, { x: 226, y: 865 }]
-        },
-        {
-          id: 'con-7',
-          type: 'strip-orange',
-          points: [{ x: 280, y: 240 }, { x: 580, y: 240 }]
-        },
-        {
-          id: 'con-8',
-          type: 'strip-orange',
-          points: [{ x: 103, y: 350 }, { x: 103, y: 490 }]
-        }
-      ];
-    }
-
-    // 當 1212d.jpg 底圖不存在時的優雅防護機制
     function handleBgImageError() {
       layoutBgImg.src = 'https://placehold.co/800x960/ffffff/94a3b8?text=1212d.jpg+Not+Found';
-      showToast('本機環境未發現 1212d.jpg。請使用右下方【替換底圖】自行載入圖片。', 'warning');
+      showToast('本機環境未發現 1212d.jpg，請載入您的圖片底圖。', 'warning');
     }
 
     // ==================== 畫布核心渲染與縮放 ====================
@@ -594,11 +545,17 @@
     function renderElements() {
       elementsLayer.innerHTML = '';
       
+      // 如果處於「自由手繪註記模式」，停用所有元件的滑鼠事件，方便書寫
+      if (state.activeDrawTool === 'freehand') {
+        elementsLayer.classList.add('pointer-events-none');
+      } else {
+        elementsLayer.classList.remove('pointer-events-none');
+      }
+
       state.elements.forEach(el => {
         const elDiv = document.createElement('div');
         elDiv.id = el.id;
         
-        // 判斷是否為選中元件，並加入特殊發光效果 selected-element-glow
         const isSelected = state.selectedElementId === el.id;
         const selectedClass = isSelected ? 'selected-element-glow z-30' : 'hover:scale-105 z-20';
         
@@ -664,11 +621,11 @@
         elementsLayer.appendChild(elDiv);
       });
 
-      // 更新側邊欄輔助操作盒
+      // 側邊欄輔助選取盒
       if (state.selectedElementId) {
         const el = state.elements.find(e => e.id === state.selectedElementId);
         if (el) {
-          let name = "未知";
+          let name = "元件";
           if (el.type.includes('light')) name = el.type === 'light-9' ? '9CM 嵌燈' : (el.type === 'light-7.5' ? '7.5CM 嵌燈' : (el.type === 'light-12' ? '12CM 嵌燈' : '吊燈'));
           if (el.type.includes('switch')) name = el.type.includes('new') ? '新增開關' : '原有開關';
           txtSelectedType.innerText = name;
@@ -682,6 +639,39 @@
     function renderWiring() {
       wiringCtx.clearRect(0, 0, wiringCanvas.width, wiringCanvas.height);
       
+      // 1. 繪製所有手寫註記 (Freehand Drawings)
+      state.drawings.forEach(drawing => {
+        if (!drawing.points || drawing.points.length < 2) return;
+        wiringCtx.beginPath();
+        wiringCtx.strokeStyle = drawing.color;
+        wiringCtx.lineWidth = drawing.width;
+        wiringCtx.lineCap = 'round';
+        wiringCtx.lineJoin = 'round';
+        wiringCtx.moveTo(drawing.points[0].x, drawing.points[0].y);
+        for (let i = 1; i < drawing.points.length; i++) {
+          wiringCtx.lineTo(drawing.points[i].x, drawing.points[i].y);
+        }
+        wiringCtx.stroke();
+      });
+
+      // 2. 繪製當前正在畫的手跡
+      if (state.activeDrawTool === 'freehand' && state.isDrawingFreehand && state.currentDrawing) {
+        const pts = state.currentDrawing.points;
+        if (pts && pts.length >= 2) {
+          wiringCtx.beginPath();
+          wiringCtx.strokeStyle = state.currentDrawing.color;
+          wiringCtx.lineWidth = state.currentDrawing.width;
+          wiringCtx.lineCap = 'round';
+          wiringCtx.lineJoin = 'round';
+          wiringCtx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            wiringCtx.lineTo(pts[i].x, pts[i].y);
+          }
+          wiringCtx.stroke();
+        }
+      }
+
+      // 3. 繪製配線與條燈
       state.connections.forEach(conn => {
         let pts = [];
         if (conn.fromElementId && conn.toElementId) {
@@ -728,8 +718,8 @@
         }
       });
 
-      // 拉線動態
-      if (state.activeDrawTool && state.tempWiringPoints.length > 0) {
+      // 拉線配線動態
+      if (state.activeDrawTool && state.activeDrawTool !== 'freehand' && state.tempWiringPoints.length > 0) {
         const isDouble = state.activeDrawTool === 'double-wiring';
         const isOrange = state.activeDrawTool === 'strip-orange';
         const isYellow = state.activeDrawTool === 'strip-yellow';
@@ -751,7 +741,7 @@
       }
 
       // 智慧吸附提示
-      if (state.hoveredSnapPoint) {
+      if (state.hoveredSnapPoint && state.activeDrawTool !== 'freehand') {
         wiringCtx.fillStyle = '#22c55e';
         wiringCtx.beginPath();
         wiringCtx.arc(state.hoveredSnapPoint.x, state.hoveredSnapPoint.y, 6, 0, Math.PI * 2);
@@ -762,7 +752,6 @@
       }
     }
 
-    // 正弦波算法
     function drawWavyPath(ctx, points) {
       if (points.length < 2) return;
       ctx.beginPath();
@@ -793,7 +782,6 @@
       ctx.stroke();
     }
 
-    // 更新 Canvas Transforms
     function updateViewport() {
       container.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
     }
@@ -801,7 +789,8 @@
     // ==================== 事件與選單操作綁定 ====================
 
     function setupEventListeners() {
-      // 點擊新增元件
+      
+      // 元件加入按鈕
       document.querySelectorAll('.add-item-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const type = btn.getAttribute('data-type');
@@ -813,7 +802,7 @@
       toolSelect.addEventListener('click', () => setMouseMode('select'));
       toolPan.addEventListener('click', () => setMouseMode('pan'));
 
-      // 雙擊畫布空白取消選擇
+      // 雙擊取消選擇
       container.addEventListener('dblclick', (e) => {
         if (e.target === container || e.target === layoutBgImg) {
           state.selectedElementId = null;
@@ -821,14 +810,14 @@
         }
       });
 
-      // 鎖定畫布功能切換 (防止畫布亂跑、誤觸平移)
+      // 鎖定畫布切換
       btnLockCanvas.addEventListener('click', () => {
         state.isLocked = !state.isLocked;
         if (state.isLocked) {
           btnLockCanvas.innerHTML = '<i class="fa-solid fa-lock text-[8px]"></i> <span>已鎖定畫布</span>';
           btnLockCanvas.className = "text-[10px] flex items-center space-x-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 font-bold";
-          setMouseMode('select'); // 強制切換為選擇模式
-          showToast('畫布已鎖定，無法平移或縮放底圖。', 'info');
+          setMouseMode('select'); 
+          showToast('畫布已鎖定。', 'info');
         } else {
           btnLockCanvas.innerHTML = '<i class="fa-solid fa-unlock text-[8px]"></i> <span>未鎖定畫布</span>';
           btnLockCanvas.className = "text-[10px] flex items-center space-x-1 px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 transition";
@@ -836,9 +825,9 @@
         }
       });
 
-      // 滾輪縮放 (加上鎖定防護)
+      // 滾輪縮放
       viewport.addEventListener('wheel', (e) => {
-        if (state.isLocked) return;
+        if (state.isLocked || state.activeDrawTool === 'freehand') return;
         e.preventDefault();
         const zoomIntensity = 0.05;
         const rect = viewport.getBoundingClientRect();
@@ -847,22 +836,21 @@
         
         const oldZoom = state.zoom;
         if (e.deltaY < 0) {
-          state.zoom = Math.min(state.zoom + zoomIntensity, 2.0); // 上限 2.0 倍
+          state.zoom = Math.min(state.zoom + zoomIntensity, 2.0); 
         } else {
-          state.zoom = Math.max(state.zoom - zoomIntensity, 0.4); // 下限 0.4 倍
+          state.zoom = Math.max(state.zoom - zoomIntensity, 0.4); 
         }
         
         state.panX -= mouseX * (state.zoom / oldZoom - 1);
         state.panY -= mouseY * (state.zoom / oldZoom - 1);
         
-        // 邊界防護：防止底圖飄得太遠
         restrictPanBoundaries();
         updateViewport();
       }, { passive: false });
 
-      // 滑鼠平移底圖 (加上鎖定與防拖走機制)
+      // 平移底圖
       viewport.addEventListener('mousedown', (e) => {
-        if (state.isLocked) return;
+        if (state.isLocked || state.activeDrawTool === 'freehand') return;
         if (e.button === 1 || state.activeTool === 'pan') {
           state.isPanning = true;
           state.startPanX = e.clientX - state.panX;
@@ -876,7 +864,6 @@
         if (state.isPanning) {
           state.panX = e.clientX - state.startPanX;
           state.panY = e.clientY - state.startPanY;
-          
           restrictPanBoundaries();
           updateViewport();
         }
@@ -889,7 +876,6 @@
         }
       });
 
-      // 限制拖曳範圍，不讓畫布離開可視範圍之外
       function restrictPanBoundaries() {
         const viewRect = viewport.getBoundingClientRect();
         const limitX = viewRect.width * 0.6;
@@ -898,9 +884,82 @@
         state.panY = Math.max(-limitY, Math.min(limitY, state.panY));
       }
 
-      // 畫配電線路交互
+      // 畫布核心按壓與點擊事件（相容於：配電拉線模式 與 自由畫筆註記模式）
+      container.addEventListener('mousedown', (e) => {
+        const rect = container.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) / state.zoom;
+        const clickY = (e.clientY - rect.top) / state.zoom;
+
+        // 【自由畫筆註記模式】：點擊並拖曳進行手寫繪圖
+        if (state.activeDrawTool === 'freehand') {
+          state.isDrawingFreehand = true;
+          state.currentDrawing = {
+            id: Date.now(),
+            color: state.penColor,
+            width: state.penWidth,
+            points: [{ x: clickX, y: clickY }]
+          };
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      });
+
+      container.addEventListener('mousemove', (e) => {
+        const rect = container.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) / state.zoom;
+        const clickY = (e.clientY - rect.top) / state.zoom;
+
+        // 【自由手寫手勢跟隨】
+        if (state.activeDrawTool === 'freehand' && state.isDrawingFreehand && state.currentDrawing) {
+          state.currentDrawing.points.push({ x: clickX, y: clickY });
+          renderWiring();
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
+
+        // 【配電連線輔助感應】
+        if (state.activeDrawTool && state.activeDrawTool !== 'freehand') {
+          const snap = getSnapPoint(clickX, clickY);
+          state.hoveredSnapPoint = snap ? snap : null;
+
+          if (state.tempWiringPoints.length > 0) {
+            let currentTargetX = clickX;
+            let currentTargetY = clickY;
+
+            if (snap) {
+              currentTargetX = snap.x;
+              currentTargetY = snap.y;
+            } else if (state.snapToGrid) {
+              currentTargetX = Math.round(clickX / state.gridSize) * state.gridSize;
+              currentTargetY = Math.round(clickY / state.gridSize) * state.gridSize;
+            }
+
+            if (state.tempWiringPoints.length > 1 && !state.tempWiringPoints[state.tempWiringPoints.length - 1].elementId) {
+              state.tempWiringPoints[state.tempWiringPoints.length - 1] = { x: currentTargetX, y: currentTargetY };
+            } else {
+              state.tempWiringPoints.push({ x: currentTargetX, y: currentTargetY });
+            }
+          }
+          renderWiring();
+        }
+      });
+
+      // 滑鼠放開手寫註記
+      window.addEventListener('mouseup', () => {
+        if (state.activeDrawTool === 'freehand' && state.isDrawingFreehand) {
+          state.isDrawingFreehand = false;
+          if (state.currentDrawing && state.currentDrawing.points.length >= 2) {
+            state.drawings.push(state.currentDrawing);
+          }
+          state.currentDrawing = null;
+          renderWiring();
+        }
+      });
+
+      // 畫布點擊（僅處理配線與燈條點擊加入端點）
       container.addEventListener('click', (e) => {
-        if (!state.activeDrawTool) return;
+        if (!state.activeDrawTool || state.activeDrawTool === 'freehand') return;
         
         const rect = container.getBoundingClientRect();
         const clickX = (e.clientX - rect.left) / state.zoom;
@@ -922,9 +981,9 @@
           if (state.tempWiringPoints.length === 0) {
             if (snap && snap.elementId) {
               state.tempWiringPoints.push({ x: targetX, y: targetY, elementId: snap.elementId });
-              updateTipText("已設定起點，請點選轉折點，最後點選終點元件完成線路。");
+              updateTipText("已選定配線起點，請沿途點擊，最後點選終點元件完成。");
             } else {
-              showToast("配線起點必須落在開關或燈具元件上！", "warning");
+              showToast("配電線路起點必須完美點在開關或燈具元件上！", "warning");
               return;
             }
           } else {
@@ -938,7 +997,7 @@
         } else if (state.activeDrawTool === 'strip-orange' || state.activeDrawTool === 'strip-yellow') {
           if (state.tempWiringPoints.length === 0) {
             state.tempWiringPoints.push({ x: targetX, y: targetY });
-            updateTipText("起點已就緒，請在畫布上點選條燈終點。");
+            updateTipText("起點已就緒，請點擊終點。");
           } else {
             state.tempWiringPoints.push({ x: targetX, y: targetY });
             saveStripConnection();
@@ -947,41 +1006,51 @@
         renderWiring();
       });
 
-      container.addEventListener('mousemove', (e) => {
-        const rect = container.getBoundingClientRect();
-        const clickX = (e.clientX - rect.left) / state.zoom;
-        const clickY = (e.clientY - rect.top) / state.zoom;
-
-        const snap = getSnapPoint(clickX, clickY);
-        state.hoveredSnapPoint = snap ? snap : null;
-
-        if (state.activeDrawTool && state.tempWiringPoints.length > 0) {
-          let currentTargetX = clickX;
-          let currentTargetY = clickY;
-
-          if (snap) {
-            currentTargetX = snap.x;
-            currentTargetY = snap.y;
-          } else if (state.snapToGrid) {
-            currentTargetX = Math.round(clickX / state.gridSize) * state.gridSize;
-            currentTargetY = Math.round(clickY / state.gridSize) * state.gridSize;
-          }
-
-          if (state.tempWiringPoints.length > 1 && !state.tempWiringPoints[state.tempWiringPoints.length - 1].elementId) {
-            state.tempWiringPoints[state.tempWiringPoints.length - 1] = { x: currentTargetX, y: currentTargetY };
-          } else {
-            state.tempWiringPoints.push({ x: currentTargetX, y: currentTargetY });
-          }
-        }
-        renderWiring();
-      });
-
-      // 繪線工具模式切換
+      // 配電繪線模式按鈕
       btnDrawSingle.addEventListener('click', () => startDrawMode('single-wiring'));
       btnDrawDouble.addEventListener('click', () => startDrawMode('double-wiring'));
       btnDrawStripOrange.addEventListener('click', () => startDrawMode('strip-orange'));
       btnDrawStripYellow.addEventListener('click', () => startDrawMode('strip-yellow'));
       
+      // 自由畫筆模式按鈕
+      btnDrawFreehand.addEventListener('click', toggleFreehandDrawMode);
+
+      // 畫筆調色盤選擇
+      document.querySelectorAll('.color-picker-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.color-picker-btn').forEach(b => b.classList.remove('ring-2', 'ring-offset-1'));
+          const color = btn.getAttribute('data-color');
+          state.penColor = color;
+          
+          // 為當前按鈕加上選中樣式
+          let ringColor = 'ring-slate-900';
+          if (color === '#ef4444') ringColor = 'ring-red-500';
+          if (color === '#2563eb') ringColor = 'ring-blue-600';
+          if (color === '#059669') ringColor = 'ring-emerald-600';
+          btn.className = `color-picker-btn w-5 h-5 rounded-full ring-2 ${ringColor} ring-offset-1`;
+          btn.style.backgroundColor = color;
+        });
+      });
+
+      // 畫筆粗細拉桿
+      penWidthSlider.addEventListener('input', (e) => {
+        state.penWidth = parseInt(e.target.value);
+        valPenWidth.innerText = `${state.penWidth}px`;
+      });
+
+      // 清除所有手寫筆跡
+      btnClearDrawings.addEventListener('click', () => {
+        if (state.drawings.length === 0) {
+          showToast("目前沒有任何註記畫筆筆跡", "info");
+          return;
+        }
+        if (confirm("確定要清空所有自由手繪的註記與箭頭標示嗎？")) {
+          state.drawings = [];
+          renderWiring();
+          showToast("已成功清空所有手寫標註！", "info");
+        }
+      });
+
       btnDrawCancel.addEventListener('click', cancelDrawMode);
       btnDrawDone.addEventListener('click', () => {
         if (state.activeDrawTool === 'single-wiring' || state.activeDrawTool === 'double-wiring') {
@@ -991,7 +1060,7 @@
         }
       });
 
-      // 透明度 slider 聯動
+      // 透明度 slider
       bgOpacitySlider.addEventListener('input', (e) => {
         state.bgOpacity = e.target.value / 100;
         valOpacity.innerText = `${e.target.value}%`;
@@ -1006,13 +1075,13 @@
         showToast(state.snapToGrid ? "網格對齊已啟用" : "網格對齊已關閉", "info");
       });
 
-      // 點擊置中對焦
+      // 重新置中
       btnRecenter.addEventListener('click', () => {
         autoFitLayoutToViewport();
-        showToast("已重置底圖位置，完美置中對焦！", "success");
+        showToast("已重新校正底圖，完美置中對焦！", "success");
       });
 
-      // 複製、刪除元件 (適合行動端與滑鼠快速點選)
+      // 複製、刪除、取消選取
       btnCloneEl.addEventListener('click', cloneSelectedElement);
       btnDeleteEl.addEventListener('click', deleteSelectedElement);
       btnCancelSelect.addEventListener('click', () => {
@@ -1020,17 +1089,19 @@
         renderElements();
       });
 
-      // 清空重置
+      // 清空重置畫布
       btnReset.addEventListener('click', () => {
-        if (confirm("確定要清除所有自訂燈具與重新佈線嗎？")) {
-          loadInitialElements();
+        if (confirm("確定要清除目前畫布上所有的燈具、配線與畫筆標註，回到全空狀態嗎？")) {
+          state.elements = [];
+          state.connections = [];
+          state.drawings = [];
           state.selectedElementId = null;
           renderAll();
-          showToast("配置已回復至 1212d 初始樣貌", "info");
+          showToast("畫布已清空重設！", "info");
         }
       });
 
-      // 上傳底圖
+      // 自訂替換底圖
       bgUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -1038,35 +1109,35 @@
           reader.onload = function(evt) {
             state.bgImageSrc = evt.target.result;
             layoutBgImg.src = state.bgImageSrc;
-            showToast("底圖替換成功！", "success");
+            showToast("底圖更換成功！", "success");
             autoFitLayoutToViewport();
           };
           reader.readAsDataURL(file);
         }
       });
 
-      // 鍵盤 Delete / Backspace 快速刪除元件
+      // Delete 刪除快捷鍵
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Delete' || e.key === 'Backspace') {
           deleteSelectedElement();
         }
       });
 
-      // 儲存為高畫質 JPEG
+      // 輸出 JPG
       btnExport.addEventListener('click', exportLayoutAsJPG);
     }
 
     // ==================== 畫布元件操作 ====================
 
     function addNewElement(type) {
-      // 在畫布中心偏上位置生成 (避免擋住主臥)
+      // 放置於相對畫布中上方位置
       const x = 400;
       const y = 480;
       const id = `el-${Date.now()}`;
       state.elements.push({ id, type, x, y });
       state.selectedElementId = id;
       renderAll();
-      showToast("元件加入成功，您可以直接拖曳其位置！", "success");
+      showToast("新增成功！您可自由拖曳調整位置。", "success");
     }
 
     function cloneSelectedElement() {
@@ -1089,15 +1160,13 @@
     function deleteSelectedElement() {
       if (state.selectedElementId) {
         state.elements = state.elements.filter(el => el.id !== state.selectedElementId);
-        // 同步刪除連線
         state.connections = state.connections.filter(c => c.fromElementId !== state.selectedElementId && c.toElementId !== state.selectedElementId);
         state.selectedElementId = null;
         renderAll();
-        showToast("元件及其對應配線已成功刪除！", "info");
+        showToast("元件及其相連配電已成功移除！", "info");
       }
     }
 
-    // 元件拖曳事件處理
     function handleElementMouseDown(e, element) {
       if (state.activeTool === 'pan' || state.activeDrawTool) return;
       e.stopPropagation();
@@ -1116,11 +1185,9 @@
         let newX = origX + dx;
         let newY = origY + dy;
 
-        // 畫布邊界碰撞保護
         newX = Math.max(15, Math.min(800 - 15, newX));
         newY = Math.max(15, Math.min(960 - 15, newY));
 
-        // 網格吸附計算
         if (state.snapToGrid) {
           newX = Math.round(newX / state.gridSize) * state.gridSize;
           newY = Math.round(newY / state.gridSize) * state.gridSize;
@@ -1146,7 +1213,6 @@
       window.addEventListener('mouseup', onMouseUp);
     }
 
-    // 元件吸附感應
     function getSnapPoint(x, y) {
       const snapRadius = 20; 
       for (let i = 0; i < state.elements.length; i++) {
@@ -1159,7 +1225,7 @@
       return null;
     }
 
-    // ==================== 繪線模式狀態轉換 ====================
+    // ==================== 繪圖狀態與手寫模式 ====================
 
     function setMouseMode(mode) {
       state.activeTool = mode;
@@ -1187,39 +1253,80 @@
       setMouseMode('select');
       state.activeDrawTool = tool;
       state.tempWiringPoints = [];
-      container.classList.add('draw-mode');
+      
+      // 更新元件事件穿透
+      badgeDrawingStatus.innerText = "未啟用";
+      badgeDrawingStatus.className = "text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded";
+      btnDrawFreehand.className = "w-full flex items-center justify-center space-x-2 py-2 px-3 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition text-xs font-semibold text-slate-600";
+      
+      container.className = "canvas-container draw-mode relative bg-white shadow-2xl origin-center select-none";
       drawActions.style.display = 'flex';
       
       let title = "";
       if (tool === 'single-wiring') {
-        title = "正在繪製：單切線路 (黑色波浪)";
-        updateTipText("請先點擊起點元件，接著點擊各轉折點，最後點擊終點元件完成。");
+        title = "正在繪製：單切線路";
+        updateTipText("請點選起點元件，接著沿路設定折點，最後點選終點元件完成。");
       } else if (tool === 'double-wiring') {
-        title = "正在繪製：雙切線路 (紅色波浪)";
-        updateTipText("請點選雙控起點與終點元件完成雙切配線。");
+        title = "正在繪製：雙切線路";
+        updateTipText("請點選雙控起點與終點元件完成雙控配線。");
       } else if (tool === 'strip-orange') {
-        title = "正在繪製：鋁條燈 (橘色粗線)";
-        updateTipText("在畫布上依序點選起點與終點，即可產生嵌入型鋁條燈。");
+        title = "正在繪製：鋁條燈";
+        updateTipText("在畫布上點擊起點與終點，即可完成橙色條燈。");
       } else if (tool === 'strip-yellow') {
-        title = "正在繪製：罩板燈 (黃色粗線)";
-        updateTipText("點選兩點即可拉出間接反光罩板燈條。");
+        title = "正在繪製：罩板燈";
+        updateTipText("點擊兩點即可拉出黃色間接反射罩板燈槽。");
       }
       drawModeLabel.innerText = title;
+      renderAll();
+    }
+
+    // 自由畫筆標註切換
+    function toggleFreehandDrawMode() {
+      if (state.isLocked) {
+        showToast("畫布已鎖定，請先【解鎖】再繪製標註！", "warning");
+        return;
+      }
+
+      if (state.activeDrawTool === 'freehand') {
+        // 關閉畫筆
+        cancelDrawMode();
+      } else {
+        // 開啟畫筆
+        setMouseMode('select');
+        state.activeDrawTool = 'freehand';
+        state.tempWiringPoints = [];
+        state.selectedElementId = null; // 清空選取，聚焦手寫
+        
+        container.className = "canvas-container freehand-mode relative bg-white shadow-2xl origin-center select-none";
+        drawActions.style.display = 'none'; // 手寫模式不需專用配線結束控制欄
+        
+        badgeDrawingStatus.innerText = "畫筆啟用中";
+        badgeDrawingStatus.className = "text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-bold animate-pulse";
+        btnDrawFreehand.className = "w-full flex items-center justify-center space-x-2 py-2 px-3 border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition text-xs font-bold shadow-md shadow-indigo-200";
+        
+        updateTipText("【手寫註記模式】：您可直接在平面圖上用滑鼠拖動繪製重點註記、箭頭或文字筆劃。");
+        renderAll();
+      }
     }
 
     function cancelDrawMode() {
       state.activeDrawTool = null;
       state.tempWiringPoints = [];
-      container.classList.remove('draw-mode');
+      container.className = "canvas-container relative bg-white shadow-2xl origin-center select-none";
       drawActions.style.display = 'none';
+      
+      badgeDrawingStatus.innerText = "未啟用";
+      badgeDrawingStatus.className = "text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded";
+      btnDrawFreehand.className = "w-full flex items-center justify-center space-x-2 py-2 px-3 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition text-xs font-semibold text-slate-600";
+      
       updateTipText("提示：點擊元件可選中並移動位置；雙擊空白處可取消選取。");
-      renderWiring();
+      renderAll();
     }
 
     function saveWiringConnection() {
       const validPoints = state.tempWiringPoints.filter(p => !p.isTemp);
       if (validPoints.length < 2) {
-        showToast("配線節點不足，已取消連線。", "warning");
+        showToast("配線端點數不足！", "warning");
         cancelDrawMode();
         return;
       }
@@ -1227,7 +1334,7 @@
       const lastPt = validPoints[validPoints.length - 1];
 
       if (!firstPt.elementId || !lastPt.elementId) {
-        showToast("配電線路的頭尾必須完美連在開關或燈具元件上！", "warning");
+        showToast("配線的兩端必須確實鎖在開關或燈具元件上！", "warning");
         cancelDrawMode();
         return;
       }
@@ -1239,7 +1346,7 @@
         toElementId: lastPt.elementId,
         points: validPoints.map(p => ({ x: p.x, y: p.y }))
       });
-      showToast("新配電連線路徑已成功儲存！", "success");
+      showToast("配電配線已儲存！", "success");
       cancelDrawMode();
     }
 
@@ -1254,7 +1361,7 @@
         type: state.activeDrawTool,
         points: [validPoints[0], validPoints[1]]
       });
-      showToast("裝飾條燈配置已完成！", "success");
+      showToast("燈條配置已儲存！", "success");
       cancelDrawMode();
     }
 
@@ -1301,7 +1408,22 @@
       const renderExportLayers = () => {
         ctx.globalAlpha = 1.0;
 
-        // 3. 繪製線路與燈條
+        // 3a. 繪製所有手寫註記 (Freehand Drawings)
+        state.drawings.forEach(drawing => {
+          if (!drawing.points || drawing.points.length < 2) return;
+          ctx.beginPath();
+          ctx.strokeStyle = drawing.color;
+          ctx.lineWidth = drawing.width;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.moveTo(drawing.points[0].x, drawing.points[0].y);
+          for (let i = 1; i < drawing.points.length; i++) {
+            ctx.lineTo(drawing.points[i].x, drawing.points[i].y);
+          }
+          ctx.stroke();
+        });
+
+        // 3b. 繪製線路與燈條
         state.connections.forEach(conn => {
           let pts = [];
           if (conn.fromElementId && conn.toElementId) {
@@ -1458,7 +1580,7 @@
         // 5. 導出並下載圖片
         const imgURL = exportCanvas.toDataURL('image/jpeg', 0.95);
         const link = document.createElement('a');
-        link.download = `邱宅_1212d_燈光配置設計圖_${Date.now()}.jpg`;
+        link.download = `邱宅_手繪註記_燈光配置圖_${Date.now()}.jpg`;
         link.href = imgURL;
         document.body.appendChild(link);
         link.click();
