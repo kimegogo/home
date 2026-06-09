@@ -2,788 +2,1362 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>木府 燈具配置模擬器</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- 載入 Three.js 作為 360度 3D 空間渲染引擎 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#111009;--panel:#1c1a14;--panel2:#252118;
-  --border:rgba(220,190,120,0.13);--accent:#c8a050;--accent2:#e0c070;
-  --text:#ede0c4;--muted:#907850;
+  /* 預設為優雅溫潤的淺色主題 (極富質感的暖白與木府金) */
+  --bg:#fbfaf7;--panel:#f5f2e6;--panel2:#fdfcf9;
+  --bdr:rgba(138,114,72,.18);--acc:#a37a24;--acc2:#805e13;
+  --tx:#2b2518;--mu:#736141;
 }
-body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-shrink:0}
-header h1{font-size:15px;font-weight:500;color:var(--accent2);letter-spacing:.1em}
-header span{font-size:11px;color:var(--muted)}
+body.dark-theme{
+  /* 深色主題配色 */
+  --bg:#0e0d09;--panel:#191710;--panel2:#211f14;
+  --bdr:rgba(215,185,115,.13);--acc:#c09840;--acc2:#ddb850;
+  --tx:#ede0c0;--mu:#8a7248;
+}
+body{background:var(--bg);color:var(--tx);font-family:'Noto Sans TC',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background 0.3s, color 0.3s}
+header{padding:10px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-left {display:flex;align-items:center;gap:14px}
+header h1{font-size:14px;font-weight:500;color:var(--acc);letter-spacing:.1em}
+header span{font-size:10px;color:var(--mu)}
+
+/* 主題切換按鈕 */
+.theme-btn {
+  background:rgba(138,114,72,0.06);border:1px solid var(--bdr);color:var(--tx);
+  padding:4px 12px;font-size:11px;border-radius:4px;cursor:pointer;transition:all .2s;
+}
+.theme-btn:hover {
+  border-color:var(--acc);background:rgba(192,152,64,0.12);color:var(--acc2);
+}
+
 .main{display:grid;grid-template-columns:290px 1fr;flex:1;overflow:hidden;min-height:0}
-.sidebar{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
-.sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.sec{font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border)}
-.card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;transition:border-color .2s}
-.card.on{border-color:rgba(200,160,80,.35)}
-.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.cn{font-size:12px;font-weight:500;display:flex;align-items:center;gap:7px}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.sw{background:none;border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:10px;color:var(--muted);cursor:pointer;transition:all .2s}
-.sw.on{border-color:var(--accent);color:var(--accent2);background:rgba(200,160,80,.1)}
-.sub{font-size:10px;color:var(--muted);margin-bottom:6px}
-.sr{display:flex;align-items:center;gap:6px;margin-top:5px}
-.sl{font-size:10px;color:var(--muted);min-width:36px}
-input[type=range]{-webkit-appearance:none;flex:1;height:3px;background:rgba(200,160,80,.2);border-radius:2px;outline:none}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer}
-.sv{font-size:10px;color:var(--accent2);min-width:30px;text-align:right}
-.cr{display:flex;align-items:center;gap:6px;margin-top:5px}
-.cb{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.cb:hover{border-color:var(--accent);color:var(--accent)}
-.cd{font-size:12px;color:var(--text);min-width:18px;text-align:center}
-.cl{font-size:10px;color:var(--muted)}
-.kbtns{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
-.kb{padding:3px 7px;font-size:9px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .2s}
-.kb.on{background:rgba(200,160,80,.15);border-color:var(--accent);color:var(--accent2)}
-.scenes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.scbtn{padding:7px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .2s;text-align:center}
-.scbtn:hover{border-color:var(--accent);color:var(--accent2)}
-.right{display:flex;flex-direction:column;overflow:hidden}
-.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);padding:0 16px;flex-shrink:0}
-.tab{padding:9px 16px;font-size:11px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.04em}
-.tab.on{color:var(--accent2);border-bottom-color:var(--accent2)}
+.sb{background:var(--panel);border-right:1px solid var(--bdr);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px}
+.sb::-webkit-scrollbar{width:3px}
+.sb::-webkit-scrollbar-thumb{background:rgba(180,150,80,.2);border-radius:2px}
+.sec{font-size:9px;letter-spacing:.13em;color:var(--mu);text-transform:uppercase;padding:5px 0 3px;border-bottom:1px solid var(--bdr);margin-top:2px}
+.card{background:var(--panel2);border:1px solid var(--bdr);border-radius:6px;padding:9px 11px;transition:all .2s;position:relative}
+.card.on{border-color:rgba(192,152,64,.32)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cn{font-size:11px;font-weight:500;display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* 線上命名編輯樣式 */
+.title-text {cursor:pointer;border-bottom:1px dashed transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;display:inline-block}
+.title-text:hover {border-bottom-color:var(--acc);color:var(--acc)}
+.rename-input {background:var(--panel)!important;border:1px solid var(--acc)!important;color:var(--tx)!important;font-size:11px;padding:2px 4px;border-radius:3px;width:120px;outline:none}
+
+.card-ctrls {display:flex;align-items:center;gap:6px}
+.sw{background:none;border:1px solid var(--bdr);border-radius:20px;padding:2px 9px;font-size:10px;color:var(--mu);cursor:pointer;transition:all .2s}
+.sw.on{border-color:var(--acc);color:var(--acc2);background:rgba(192,152,64,.1)}
+.del-btn {background:none;border:none;color:rgba(200,80,80,0.6);cursor:pointer;font-size:10px;padding:2px 6px;transition:all .2s;border-radius:4px}
+.del-btn:hover {color:#ff6b6b;background:rgba(255,0,0,0.1)}
+
+.sub{font-size:9px;color:var(--mu);margin-bottom:5px}
+.sr{display:flex;align-items:center;gap:5px;margin-top:4px}
+.sl{font-size:9px;color:var(--mu);min-width:32px}
+input[type=range]{-webkit-appearance:none;flex:1;height:2.5px;background:rgba(192,152,64,.18);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--acc);cursor:pointer}
+.sv{font-size:10px;color:var(--acc2);min-width:28px;text-align:right}
+.cr{display:flex;align-items:center;gap:5px;margin-top:4px}
+.cb{width:18px;height:18px;border-radius:50%;border:1px solid var(--bdr);background:none;color:var(--mu);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.cb:hover{border-color:var(--acc);color:var(--acc)}
+.cd{font-size:11px;color:var(--tx);min-width:16px;text-align:center}
+.cl{font-size:9px;color:var(--mu)}
+.kb{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
+.k{padding:2px 6px;font-size:9px;border-radius:3px;border:1px solid var(--bdr);background:none;color:var(--mu);cursor:pointer;transition:all .2s}
+.k.on{background:rgba(192,152,64,.14);border-color:var(--acc);color:var(--acc2)}
+.sc{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.scb{padding:6px;font-size:10px;border-radius:5px;border:1px solid var(--bdr);background:none;color:var(--mu);cursor:pointer;transition:all .2s;text-align:center}
+.scb:hover{border-color:var(--acc);color:var(--acc2)}
+
+/* 頁籤與匯出按鈕組合 */
+.rt{display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr);background:var(--panel);padding:0 14px;flex-shrink:0}
+.tab-group{display:flex}
+.tab{padding:8px 14px;font-size:11px;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.04em}
+.tab.on{color:var(--acc2);border-bottom-color:var(--acc2)}
+
+.export-btn{background:rgba(192,152,64,0.08);border:1px solid var(--bdr);color:var(--acc);padding:4px 12px;font-size:11px;border-radius:4px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
+.export-btn:hover{background:var(--acc);color:#fff;box-shadow:0 0 8px rgba(192,152,64,0.15)}
+
 .cv{flex:1;position:relative;overflow:hidden}
 canvas{position:absolute;top:0;left:0;width:100%;height:100%}
-.hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);background:rgba(17,16,9,.85);padding:3px 12px;border-radius:20px;border:1px solid var(--border);pointer-events:none;white-space:nowrap}
+.ht{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--mu);background:rgba(255,253,248,.88);padding:3px 11px;border-radius:20px;border:1px solid var(--bdr);pointer-events:none;white-space:nowrap;z-index:10;box-shadow: 0 2px 6px rgba(0,0,0,0.05)}
+body.dark-theme .ht {background:rgba(14,13,9,.88);box-shadow:none}
+
+/* 自訂迴路面板 */
+.add-btn {background:rgba(192,152,64,0.05);border:1px dashed var(--bdr);color:var(--acc);padding:7px;border-radius:6px;font-size:11px;cursor:pointer;transition:all .2s;text-align:center;margin:4px 0}
+.add-btn:hover {background:rgba(192,152,64,0.1);border-color:var(--acc)}
+.add-panel {background:var(--panel2);border:1px solid var(--acc);border-radius:6px;padding:10px;display:none;flex-direction:column;gap:6px;margin:4px 0}
+.add-panel h4 {font-size:11px;color:var(--acc)}
+.add-panel input, .add-panel select {background:var(--panel);border:1px solid var(--bdr);color:var(--tx);font-size:11px;padding:4px 6px;border-radius:4px;outline:none}
+.add-panel-btns {display:flex;gap:4px;margin-top:4px}
+.add-panel-btns button {flex:1;padding:4px;font-size:10px;border-radius:4px;cursor:pointer;border:none}
+.btn-save {background:var(--acc);color:#fff;font-weight:500}
+.btn-cancel {background:rgba(0,0,0,0.05);color:var(--mu);border:1px solid var(--bdr)}
+body.dark-theme .btn-cancel {background:rgba(255,255,255,0.05)}
+
+/* 手機版面回應式調整 */
+@media(max-width: 768px) {
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: 45% 55%;
+  }
+  .sb {
+    order: 2;
+    border-right: none;
+    border-top: 1px solid var(--bdr);
+  }
+  .rt {
+    order: 1;
+  }
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>木府 · 客廳燈具配置模擬器</h1>
-  <span>260225 邱宅</span>
+  <div class="header-left">
+    <h1>木府 · 燈具配置模擬器</h1>
+    <span>260225 邱宅 — 客廳 / 餐廳</span>
+  </div>
+  <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()">🌓 切換深色模式</button>
 </header>
 <div class="main">
-<div class="sidebar">
-  <div class="sec">燈具迴路控制</div>
+<div class="sb">
+  <div class="sec">崁燈 / 燈具迴路</div>
+  
+  <!-- 動態生成迴路卡片容器 -->
+  <div id="circuits-container" style="display:flex; flex-direction:column; gap:7px;"></div>
 
-  <!-- 迴路1: 上方大迴路 頂排2顆+右1顆 共3顆, S₃右側 -->
-  <div class="card on" id="card1">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#e8c060"></div>迴路① · 上區崁燈</div>
-      <button class="sw on" id="sw1" onclick="tog(1)">ON</button>
-    </div>
-    <div class="sub">S₃ 三路 · 頂排2顆 + 右側1顆</div>
-    <div class="cr">
-      <button class="cb" onclick="chg(1,-1)">−</button>
-      <span class="cd" id="cnt1">3</span>
-      <span class="cl">顆 9cm 崁燈</span>
-      <button class="cb" onclick="chg(1,1)">+</button>
-    </div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="80" id="br1" oninput="upd(1)">
-      <span class="sv" id="bv1">80%</span>
-    </div>
-    <div class="kbtns">
-      <button class="kb on" id="k1w" onclick="kc(1,'warm')">暖白 3000K</button>
-      <button class="kb" id="k1n" onclick="kc(1,'neu')">中性 4000K</button>
-      <button class="kb" id="k1c" onclick="kc(1,'cool')">冷白 6000K</button>
-    </div>
-  </div>
-
-  <!-- 迴路2: 中間迴路 左2顆+右1顆 共3顆 -->
-  <div class="card on" id="card2">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#d4a840"></div>迴路② · 中區崁燈</div>
-      <button class="sw on" id="sw2" onclick="tog(2)">ON</button>
-    </div>
-    <div class="sub">S₃ 三路 · 左側2顆 + 右側1顆</div>
-    <div class="cr">
-      <button class="cb" onclick="chg(2,-1)">−</button>
-      <span class="cd" id="cnt2">3</span>
-      <span class="cl">顆 9cm 崁燈</span>
-      <button class="cb" onclick="chg(2,1)">+</button>
-    </div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="80" id="br2" oninput="upd(2)">
-      <span class="sv" id="bv2">80%</span>
-    </div>
-    <div class="kbtns">
-      <button class="kb on" id="k2w" onclick="kc(2,'warm')">暖白 3000K</button>
-      <button class="kb" id="k2n" onclick="kc(2,'neu')">中性 4000K</button>
-      <button class="kb" id="k2c" onclick="kc(2,'cool')">冷白 6000K</button>
-    </div>
-  </div>
-
-  <!-- 迴路3: 下方大迴路 左2+中1+右1+底2 共6顆, 左側S₃ -->
-  <div class="card on" id="card3">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#b8902a"></div>迴路③ · 下區崁燈</div>
-      <button class="sw on" id="sw3" onclick="tog(3)">ON</button>
-    </div>
-    <div class="sub">S₃ 三路(左側3組) · 下半區</div>
-    <div class="cr">
-      <button class="cb" onclick="chg(3,-1)">−</button>
-      <span class="cd" id="cnt3">6</span>
-      <span class="cl">顆 9cm 崁燈</span>
-      <button class="cb" onclick="chg(3,1)">+</button>
-    </div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="80" id="br3" oninput="upd(3)">
-      <span class="sv" id="bv3">80%</span>
-    </div>
-    <div class="kbtns">
-      <button class="kb on" id="k3w" onclick="kc(3,'warm')">暖白 3000K</button>
-      <button class="kb" id="k3n" onclick="kc(3,'neu')">中性 4000K</button>
-      <button class="kb" id="k3c" onclick="kc(3,'cool')">冷白 6000K</button>
-    </div>
-  </div>
-
-  <!-- 左牆層板燈 (橘色鋁條燈) -->
-  <div class="card on" id="card4">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#e07030"></div>左牆層板燈</div>
-      <button class="sw on" id="sw4" onclick="tog(4)">ON</button>
-    </div>
-    <div class="sub">橘色鋁條燈 · 間接照明</div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="60" id="br4" oninput="upd(4)">
-      <span class="sv" id="bv4">60%</span>
-    </div>
-  </div>
-
-  <!-- 底部層板燈 S單切 -->
-  <div class="card on" id="card5">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#e06020"></div>底部層板燈</div>
-      <button class="sw on" id="sw5" onclick="tog(5)">ON</button>
-    </div>
-    <div class="sub">S 單切 · 底牆橘色條燈</div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="55" id="br5" oninput="upd(5)">
-      <span class="sv" id="bv5">55%</span>
-    </div>
-  </div>
-
-  <!-- 野口勇 Akari 45A -->
-  <div class="card on" id="card6">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#f0e0a0"></div>野口勇 Akari 45A</div>
-      <button class="sw on" id="sw6" onclick="tog(6)">ON</button>
-    </div>
-    <div class="sub">吊燈 · 餐廳中央</div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="75" id="br6" oninput="upd(6)">
-      <span class="sv" id="bv6">75%</span>
-    </div>
-  </div>
-
-  <!-- 門口壁燈 -->
-  <div class="card on" id="card7">
-    <div class="ch">
-      <div class="cn"><div class="dot" style="background:#c09060"></div>門口壁燈</div>
-      <button class="sw on" id="sw7" onclick="tog(7)">ON</button>
-    </div>
-    <div class="sub">壁燈 · 玄關入口</div>
-    <div class="sr">
-      <span class="sl">亮度</span>
-      <input type="range" min="0" max="100" value="60" id="br7" oninput="upd(7)">
-      <span class="sv" id="bv7">60%</span>
+  <!-- 新增自訂迴路按鈕與控制板 -->
+  <button class="add-btn" id="add-trigger" onclick="toggleAddPanel(true)">＋ 新增自訂迴路</button>
+  <div class="add-panel" id="add-panel">
+    <h4>新增自訂迴路</h4>
+    <input type="text" id="new-name" placeholder="輸入迴路名稱，例如：走道崁燈" />
+    <select id="new-type" onchange="onTypeChange()">
+      <option value="downlight">崁燈 (可增減與拖移)</option>
+      <option value="strip_left">電視牆層板燈 (左側條燈)</option>
+      <option value="strip_bottom">餐邊櫃層板燈 (底部條燈)</option>
+      <option value="pendant">主燈/吊燈 (餐桌上方)</option>
+      <option value="sconce_left">壁燈 (左側牆面)</option>
+    </select>
+    <div class="add-panel-btns">
+      <button class="btn-cancel" onclick="toggleAddPanel(false)">取消</button>
+      <button class="btn-save" onclick="saveCustomCircuit()">建立</button>
     </div>
   </div>
 
   <div class="sec">情境預設</div>
-  <div class="scenes">
-    <button class="scbtn" onclick="scene('all')">✦ 全開</button>
-    <button class="scbtn" onclick="scene('relax')">◎ 休閒</button>
-    <button class="scbtn" onclick="scene('dim')">◑ 夜燈</button>
-    <button class="scbtn" onclick="scene('off')">○ 全關</button>
+  <div class="sc">
+    <button class="scb" onclick="preset('all')">✦ 全開</button>
+    <button class="scb" onclick="preset('relax')">◎ 休閒</button>
+    <button class="scb" onclick="preset('dining')">⬤ 用餐</button>
+    <button class="scb" onclick="preset('off')">○ 全關</button>
   </div>
 </div>
 
-<div class="right">
+<div class="rt">
   <div class="tabs">
-    <div class="tab on" id="t1" onclick="sv('plan')">平面配置圖</div>
-    <div class="tab" id="t2" onclick="sv('sim')">客廳燈光模擬</div>
+    <div class="tab-group">
+      <div class="tab on" id="t1" onclick="sv('plan')">平面配置圖</div>
+      <div class="tab" id="t2" onclick="sv('sim')">空間燈光模擬</div>
+    </div>
+    <button class="export-btn" onclick="exportCanvas()">💾 匯出目前畫面</button>
   </div>
   <div class="cv">
     <canvas id="pc"></canvas>
-    <canvas id="sc" style="display:none"></canvas>
-    <div class="hint" id="ht">拖曳崁燈可調整位置 · 雙擊刪除</div>
+    <!-- 3D 模擬使用 WebGL Canvas -->
+    <canvas id="sc2" style="display:none"></canvas>
+    <div class="ht" id="ht">雙擊名稱可重命名 · 拖曳燈具調整位置 · 雙擊燈具可刪除 · 野口勇吊燈可移動</div>
   </div>
 </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────
-const CT = {
-  warm:  {r:255,g:195,b:95},
-  neu:   {r:255,g:235,b:185},
-  cool:  {r:210,g:228,b:255}
-};
+// ── 色溫設定 (RGB 轉換) ──
+const CT={warm:{r:255,g:198,b:98},warmLight:{r:255,g:215,b:130},neu:{r:255,g:236,b:188},cool:{r:212,g:228,b:255}};
 
-// Circuits: id, on, bright, color, count, maxCount
-const C = {
-  1:{on:true,b:80,col:'warm',cnt:3,max:6},
-  2:{on:true,b:80,col:'warm',cnt:3,max:6},
-  3:{on:true,b:80,col:'warm',cnt:6,max:9},
-  4:{on:true,b:60},  // left strip
-  5:{on:true,b:55},  // bottom strip
-  6:{on:true,b:75},  // Noguchi
-  7:{on:true,b:60},  // sconce
-};
+// ── 主題切換狀態變數 ──
+let isDark = false; // 預設為淺色主題
 
-// Light positions in floor plan (normalized 0-1 within drawing area)
-// Based on actual floor plan: tall portrait room
-// Circuit 1 (top zone): top-left2 + top-right1
-let L1 = [{x:.28,y:.09},{x:.52,y:.09},{x:.72,y:.20}];
-// Circuit 2 (mid zone): mid-left2 + mid-right1
-let L2 = [{x:.25,y:.38},{x:.50,y:.38},{x:.63,y:.42}];
-// Circuit 3 (lower zone): left2+center1+right1+bottom2
-let L3 = [{x:.25,y:.60},{x:.50,y:.60},{x:.72,y:.60},{x:.28,y:.76},{x:.52,y:.76},{x:.72,y:.76}];
-// Noguchi position
-let LN = {x:.45,y:.68};
+// 核心資料結構：迴路列表 (高度動態化)
+let circuits=[
+  {
+    id: 'c1',
+    name: '迴路① · 上區崁燈',
+    type: 'downlight',
+    on: true,
+    b: 80,
+    col: 'warm',
+    lights: [{x:.28,y:.10},{x:.55,y:.10},{x:.72,y:.10}],
+    desc: 'S₃ 三路 · 靠窗側上半區',
+    color: '#e8c060',
+    presetVal: {all:[true,85], relax:[true,42], dining:[false,0], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c2',
+    name: '迴路② · 中區崁燈',
+    type: 'downlight',
+    on: true,
+    b: 80,
+    col: 'warm',
+    lights: [{x:.22,y:.38},{x:.50,y:.38},{x:.72,y:.38}],
+    desc: 'S₃ 三路 · 客廳中央區',
+    color: '#d4a838',
+    presetVal: {all:[true,85], relax:[true,38], dining:[false,0], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c3',
+    name: '迴路③ · 下區崁燈',
+    type: 'downlight',
+    on: true,
+    b: 80,
+    col: 'warm',
+    lights: [
+      {x:.22,y:.60},{x:.50,y:.60},{x:.72,y:.60},
+      {x:.28,y:.76},{x:.55,y:.76},{x:.72,y:.76}
+    ],
+    desc: 'S₃ 三路(左側3組) · 餐廳側下半區',
+    color: '#b88c24',
+    presetVal: {all:[true,85], relax:[false,0], dining:[true,60], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c4',
+    name: '電視牆層板燈',
+    type: 'strip_left',
+    on: true,
+    b: 65,
+    desc: '左牆 TV 櫃下方橘色條燈',
+    color: '#e06828',
+    presetVal: {all:[true,70], relax:[true,48], dining:[false,0], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c5',
+    name: '餐邊櫃層板燈',
+    type: 'strip_bottom',
+    on: true,
+    b: 55,
+    desc: '底牆 S 單切 · 餐邊櫃條燈',
+    color: '#d05818',
+    presetVal: {all:[true,62], relax:[true,42], dining:[true,58], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c6',
+    name: '野口勇 Akari 45A',
+    type: 'pendant',
+    on: true,
+    b: 75,
+    lights: [{x:.50,y:.68}], 
+    desc: '吊燈 · 餐桌上方（可拖移）',
+    color: '#f0e098',
+    presetVal: {all:[true,80], relax:[true,72], dining:[true,88], off:[false,0]},
+    isDefault: true
+  },
+  {
+    id: 'c7',
+    name: '門口壁燈',
+    type: 'sconce_left',
+    on: true,
+    b: 60,
+    lights: [{x:.02,y:.72}],
+    desc: '玄關入口左側壁燈',
+    color: '#b08858',
+    presetVal: {all:[true,68], relax:[true,55], dining:[false,0], off:[false,0]},
+    isDefault: true
+  }
+];
 
 let view='plan', drag=null;
-const pc=document.getElementById('pc'), sc=document.getElementById('sc');
-const pctx=pc.getContext('2d'), sctx=sc.getContext('2d');
+const pc=document.getElementById('pc');
+const sc2=document.getElementById('sc2');
+const pctx=pc.getContext('2d');
 let W,H;
+
+// ── Three.js 3D 空間模擬狀態變數 ──
+let scene, camera, renderer, ambientLight;
+let threeLightsList = [];
+let threeFixturesList = [];
+let staticMeshes = [];
+let isDragging3D = false;
+let prevMouseX = 0, prevMouseY = 0;
+let theta = 0.65; // 水平視角
+let phi = 0.35;   // 垂直俯仰視角
+let radius = 11;  // 視角距離 (Zoom)
+const center = new THREE.Vector3(0, 1.1, 0); 
+
+// ── 雙主題動態配色 ──
+function getThemeColors() {
+  if (isDark) {
+    return {
+      bgPlan: '#0e0d09',
+      bgRoom: '#1f1d13',
+      bgSim: 0x070604,
+      wallBdr: 'rgba(215,185,115,.55)',
+      itemText: 'rgba(195,175,125,.82)',
+      faintLine: 'rgba(200,175,110,.15)',
+      chairFill: 'rgba(200,185,158,.18)',
+      furnitureSofa: 'rgba(180,165,140,.18)',
+      furnitureSofaBdr: 'rgba(200,180,140,.3)',
+      furnitureTable: 'rgba(100,72,38,.3)',
+      furnitureCoffee: 'rgba(120,90,50,.25)',
+      entryFill: '#18150c',
+      labelColor: 'rgba(180,140,70,.5)',
+      sconceFill: 'rgba(60,48,28,.8)',
+      sconceLitFill: 'rgba(255,200,120,.5)',
+      ambientIntensity: 0.05
+    };
+  } else {
+    return {
+      bgPlan: '#fbfaf7',
+      bgRoom: '#f5f2e6',
+      bgSim: 0xf5f2e6,
+      wallBdr: 'rgba(138,114,72,.55)',
+      itemText: 'rgba(115,97,65,.9)',
+      faintLine: 'rgba(138,114,72,.18)',
+      chairFill: 'rgba(138,114,72,.1)',
+      furnitureSofa: 'rgba(138,114,72,.15)',
+      furnitureSofaBdr: 'rgba(138,114,72,.3)',
+      furnitureTable: 'rgba(100,72,38,.16)',
+      furnitureCoffee: 'rgba(120,90,50,.15)',
+      entryFill: '#eae5d5',
+      labelColor: 'rgba(138,114,72,.7)',
+      sconceFill: 'rgba(180,160,130,.5)',
+      sconceLitFill: 'rgba(255,220,160,.85)',
+      ambientIntensity: 0.18
+    };
+  }
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  const btn = document.getElementById('theme-toggle');
+  if (isDark) {
+    document.body.classList.add('dark-theme');
+    btn.textContent = '☀️ 切換淺色模式';
+  } else {
+    document.body.classList.remove('dark-theme');
+    btn.textContent = '🌓 切換深色模式';
+  }
+  
+  if (scene) {
+    scene.background = new THREE.Color(getThemeColors().bgSim);
+    if (ambientLight) {
+      ambientLight.intensity = getThemeColors().ambientIntensity;
+    }
+    // 重建 3D 家具硬裝以轉換材質色澤
+    build3DObjects();
+    syncThreeLights();
+  }
+  
+  buildSidebar();
+  render();
+}
+
+// ── 建立側邊欄迴路控制卡片 ──
+function buildSidebar() {
+  const container = document.getElementById('circuits-container');
+  let html = '';
+
+  circuits.forEach(c => {
+    const onClass = c.on ? 'on' : '';
+    const onText = c.on ? 'ON' : 'OFF';
+    const activeCardClass = c.on ? 'card on' : 'card';
+    const deleteButton = c.isDefault ? '' : `<button class="del-btn" onclick="deleteCircuit('${c.id}')" title="刪除此迴路">✕</button>`;
+
+    let controlsHTML = '';
+
+    if (c.type === 'downlight') {
+      const lightsLen = c.lights ? c.lights.length : 0;
+      controlsHTML = `
+        <div class="cr">
+          <button class="cb" onclick="chgDownlightCount('${c.id}', -1)">−</button>
+          <span class="cd" id="c-${c.id}">${lightsLen}</span>
+          <span class="cl">顆 9cm 崁燈</span>
+          <button class="cb" onclick="chgDownlightCount('${c.id}', 1)">+</button>
+        </div>
+        <div class="sr">
+          <span class="sl">亮度</span>
+          <input type="range" min="0" max="100" value="${c.b}" id="b-${c.id}" oninput="updBrightness('${c.id}')">
+          <span class="sv" id="v-${c.id}">${c.b}%</span>
+        </div>
+        <div class="kb">
+          <button class="k ${c.col === 'warm' ? 'on' : ''}" id="k-${c.id}-warm" onclick="changeColorTemp('${c.id}','warm')">暖白 3000K</button>
+          <button class="k ${c.col === 'neu' ? 'on' : ''}" id="k-${c.id}-neu" onclick="changeColorTemp('${c.id}','neu')">中性 4000K</button>
+          <button class="k ${c.col === 'cool' ? 'on' : ''}" id="k-${c.id}-cool" onclick="changeColorTemp('${c.id}','cool')">冷白 6000K</button>
+        </div>
+      `;
+    } else {
+      controlsHTML = `
+        <div class="sr">
+          <span class="sl">亮度</span>
+          <input type="range" min="0" max="100" value="${c.b}" id="b-${c.id}" oninput="updBrightness('${c.id}')">
+          <span class="sv" id="v-${c.id}">${c.b}%</span>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="${activeCardClass}" id="cd-${c.id}">
+        <div class="ch">
+          <div class="cn">
+            <div class="dot" style="background:${c.color}"></div>
+            <span class="title-text" id="title-lbl-${c.id}" onclick="startRename('${c.id}')" title="點擊重新命名">${c.name}</span>
+            <input type="text" class="rename-input" id="title-inp-${c.id}" value="${c.name}" onblur="endRename('${c.id}')" onkeydown="handleRenameKey(event, '${c.id}')" style="display:none;">
+          </div>
+          <div class="card-ctrls">
+            ${deleteButton}
+            <button class="sw ${onClass}" id="sw-${c.id}" onclick="tog('${c.id}')">${onText}</button>
+          </div>
+        </div>
+        <div class="sub">${c.desc}</div>
+        ${controlsHTML}
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// ── 線上重新命名邏輯 ──
+function startRename(id) {
+  document.getElementById(`title-lbl-${id}`).style.display = 'none';
+  const inp = document.getElementById(`title-inp-${id}`);
+  inp.style.display = 'inline-block';
+  inp.focus();
+  inp.select();
+}
+
+function endRename(id) {
+  const inp = document.getElementById(`title-inp-${id}`);
+  const val = inp.value.trim();
+  if (val) {
+    const c = circuits.find(item => item.id === id);
+    if (c) c.name = val;
+  }
+  buildSidebar();
+  render();
+}
+
+function handleRenameKey(e, id) {
+  if (e.key === 'Enter') {
+    endRename(id);
+  } else if (e.key === 'Escape') {
+    const c = circuits.find(item => item.id === id);
+    if (c) document.getElementById(`title-inp-${id}`).value = c.name;
+    buildSidebar();
+  }
+}
+
+// ── 增加與刪除自訂迴路 ──
+function toggleAddPanel(show) {
+  const panel = document.getElementById('add-panel');
+  const trigger = document.getElementById('add-trigger');
+  if (show) {
+    panel.style.display = 'flex';
+    trigger.style.display = 'none';
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-name').focus();
+  } else {
+    panel.style.display = 'none';
+    trigger.style.display = 'block';
+  }
+}
+
+function onTypeChange() {
+  const type = document.getElementById('new-type').value;
+  const nameInp = document.getElementById('new-name');
+  if (!nameInp.value) {
+    if (type === 'downlight') nameInp.value = '自訂崁燈迴路';
+    else if (type === 'strip_left' || type === 'strip_bottom') nameInp.value = '自訂層板條燈';
+    else if (type === 'pendant') nameInp.value = '自訂美學吊燈';
+    else if (type === 'sconce_left') nameInp.value = '自訂造型壁燈';
+  }
+}
+
+function saveCustomCircuit() {
+  const name = document.getElementById('new-name').value.trim() || '未命名迴路';
+  const type = document.getElementById('new-type').value;
+  const id = 'custom_' + Date.now();
+
+  const colors = {
+    downlight: '#cca53d',
+    strip_left: '#f37a3e',
+    strip_bottom: '#e36a28',
+    pendant: '#fcf0c0',
+    sconce_left: '#cbb291'
+  };
+
+  const newCirc = {
+    id: id,
+    name: name,
+    type: type,
+    on: true,
+    b: 70,
+    desc: '自訂配置迴路 (可自由修改)',
+    color: colors[type] || '#ffffff',
+    isDefault: false
+  };
+
+  if (type === 'downlight') {
+    newCirc.col = 'warm';
+    newCirc.lights = [{x:.50, y:.50}];
+  } else if (type === 'pendant') {
+    newCirc.lights = [{x:.50, y:.68}];
+  } else if (type === 'sconce_left') {
+    newCirc.lights = [{x:.02, y:.50}];
+  }
+
+  circuits.push(newCirc);
+  toggleAddPanel(false);
+  buildSidebar();
+  render();
+}
+
+function deleteCircuit(id) {
+  circuits = circuits.filter(c => c.id !== id);
+  buildSidebar();
+  render();
+}
+
+// ── 燈光數量增減控制 ──
+function chgDownlightCount(id, delta) {
+  const c = circuits.find(item => item.id === id);
+  if (!c || !c.lights) return;
+  
+  if (delta < 0) {
+    if (c.lights.length > 0) {
+      c.lights.pop();
+    }
+  } else {
+    let rx = .5, ry = .5;
+    if (c.lights.length > 0) {
+      const last = c.lights[c.lights.length - 1];
+      rx = Math.min(.95, Math.max(.05, last.x + .08));
+      ry = last.y;
+    } else {
+      if (id === 'c1') ry = 0.10;
+      else if (id === 'c2') ry = 0.38;
+      else if (id === 'c3') ry = 0.68;
+    }
+    c.lights.push({ x: rx, y: ry });
+  }
+  buildSidebar();
+  render();
+}
 
 function resize(){
   const el=document.querySelector('.cv');
-  W=el.clientWidth; H=el.clientHeight;
+  W=Math.max(100, el.clientWidth); 
+  H=Math.max(100, el.clientHeight);
   pc.width=W; pc.height=H;
-  sc.width=W; sc.height=H;
+  
+  if(renderer) {
+    renderer.setSize(W, H);
+    camera.aspect = W / H;
+    camera.updateProjectionMatrix();
+  } else {
+    sc2.width=W; sc2.height=H;
+  }
   render();
 }
 
-// ── Plan drawing ───────────────────────────────────────────────────
-function drawPlan(){
-  const ctx=pctx;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#100f08'; ctx.fillRect(0,0,W,H);
-
-  // Layout: portrait room centered
-  // Room is tall – use most of canvas height
-  const pad=20;
-  const rw=Math.min(W-pad*2, (H-pad*2)*0.58); // maintain aspect ~1:1.72
-  const rh=rw/0.58;
-  const rx=(W-rw)/2, ry=(H-Math.min(rh,H-pad*2))/2;
-  const ah=Math.min(rh,H-pad*2);
-  // scale helpers
-  const px=x=>rx+x*rw, py=y=>ry+y*ah;
-
-  // Room fill
-  ctx.fillStyle='#1e1c14'; ctx.fillRect(rx,ry,rw,ah);
-  // Outer wall
-  ctx.strokeStyle='rgba(210,185,130,.55)'; ctx.lineWidth=2.5;
-  ctx.strokeRect(rx,ry,rw,ah);
-
-  // Inner wall lines (simplified features)
-  ctx.strokeStyle='rgba(180,160,100,.2)'; ctx.lineWidth=1;
-  // Left side cabinet/wardrobe area (top-left)
-  ctx.strokeRect(rx, ry, rw*0.18, ah*0.28);
-  // Bottom-left (entry/storage)
-  ctx.strokeRect(rx, ry+ah*0.88, rw*0.28, ah*0.12);
-
-  // Left wall orange strip (Circuit 4)
-  if(C[4].on && C[4].b>0){
-    const b=C[4].b/100;
-    const grd=ctx.createLinearGradient(rx,0,rx+rw*0.12,0);
-    grd.addColorStop(0,`rgba(255,160,40,${b*.7})`);
-    grd.addColorStop(1,'rgba(255,120,20,0)');
-    ctx.fillStyle=grd;
-    ctx.fillRect(rx,ry+ah*.05,rw*.12,ah*.52);
-    ctx.strokeStyle=`rgba(255,140,30,${b*.9})`; ctx.lineWidth=2.5;
-    ctx.beginPath(); ctx.moveTo(rx+3,ry+ah*.05); ctx.lineTo(rx+3,ry+ah*.57); ctx.stroke();
+function roomBounds(){
+  const aspect=0.58; 
+  const pad=16;
+  let rh=Math.max(40, H-pad*2), rw=rh*aspect;
+  if(rw>W-140){ 
+    rw=Math.max(40, W-140); 
+    rh=rw/aspect; 
   }
-
-  // Bottom strip (Circuit 5)
-  if(C[5].on && C[5].b>0){
-    const b=C[5].b/100;
-    const grd2=ctx.createLinearGradient(0,ry+ah*.95,0,ry+ah);
-    grd2.addColorStop(0,'rgba(255,140,30,0)');
-    grd2.addColorStop(1,`rgba(255,140,30,${b*.7})`);
-    ctx.fillStyle=grd2;
-    ctx.fillRect(rx+rw*.25,ry+ah*.92,rw*.45,ah*.08);
-    ctx.strokeStyle=`rgba(255,130,25,${b*.9})`; ctx.lineWidth=2.5;
-    ctx.beginPath(); ctx.moveTo(rx+rw*.25,ry+ah*.97); ctx.lineTo(rx+rw*.70,ry+ah*.97); ctx.stroke();
-  }
-
-  // Draw circuit wire paths (decorative, matching actual plan curves)
-  drawWires(ctx,rx,ry,rw,ah);
-
-  // Draw recessed lights
-  const drawR=(lx,ly,cid)=>{
-    const c=C[cid]; const b=c.on?c.b/100:0;
-    const t=CT[c.col||'warm']; const rad=Math.max(5,rw*.024);
-    if(b>0){
-      const gl=ctx.createRadialGradient(lx,ly,0,lx,ly,rad*5.5);
-      gl.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.38})`);
-      gl.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(lx,ly,rad*5.5,0,Math.PI*2); ctx.fill();
-    }
-    ctx.beginPath(); ctx.arc(lx,ly,rad,0,Math.PI*2);
-    ctx.fillStyle=b>0?`rgba(${t.r},${t.g},${t.b},${.35+b*.6})`:'rgba(55,48,32,.9)';
-    ctx.fill();
-    ctx.strokeStyle=b>0?`rgba(${t.r},${t.g},${t.b},.8)`:'rgba(100,85,50,.4)';
-    ctx.lineWidth=1; ctx.stroke();
-    ctx.beginPath(); ctx.arc(lx,ly,rad*.45,0,Math.PI*2);
-    ctx.strokeStyle=b>0?`rgba(255,255,255,${b*.5})`:'rgba(70,55,30,.4)'; ctx.lineWidth=.5; ctx.stroke();
-  };
-
-  L1.slice(0,C[1].cnt).forEach(l=>drawR(px(l.x),py(l.y),1));
-  L2.slice(0,C[2].cnt).forEach(l=>drawR(px(l.x),py(l.y),2));
-  L3.slice(0,C[3].cnt).forEach(l=>drawR(px(l.x),py(l.y),3));
-
-  // Noguchi pendant
-  {
-    const lx=px(LN.x), ly=py(LN.y);
-    const b6=C[6].on?C[6].b/100:0;
-    if(b6>0){
-      const gln=ctx.createRadialGradient(lx,ly,0,lx,ly,rw*.1);
-      gln.addColorStop(0,`rgba(255,235,160,${b6*.45})`); gln.addColorStop(1,'rgba(255,200,80,0)');
-      ctx.fillStyle=gln; ctx.beginPath(); ctx.arc(lx,ly,rw*.1,0,Math.PI*2); ctx.fill();
-    }
-    // Oval lantern
-    ctx.save(); ctx.translate(lx,ly); ctx.scale(1.55,1);
-    ctx.beginPath(); ctx.arc(0,0,rw*.028,0,Math.PI*2);
-    ctx.fillStyle=b6>0?`rgba(255,235,170,${.35+b6*.5})`:'rgba(70,58,36,.7)';
-    ctx.fill();
-    ctx.strokeStyle=b6>0?`rgba(255,215,120,.85)`:'rgba(90,72,40,.5)'; ctx.lineWidth=1; ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle='rgba(200,170,90,.55)'; ctx.font=`${Math.max(9,rw*.032)}px Noto Sans TC`;
-    ctx.textAlign='center'; ctx.fillText('野口勇',lx,ly+rw*.062);
-  }
-
-  // Wall sconce (right side near top-right)
-  {
-    const sx=px(.85), sy=py(.28);
-    const b7=C[7].on?C[7].b/100:0;
-    if(b7>0){
-      const gs=ctx.createRadialGradient(sx,sy,0,sx-rw*.08,sy,rw*.12);
-      gs.addColorStop(0,`rgba(255,200,110,${b7*.5})`); gs.addColorStop(1,'rgba(255,170,60,0)');
-      ctx.fillStyle=gs; ctx.beginPath(); ctx.arc(sx-rw*.04,sy,rw*.1,0,Math.PI*2); ctx.fill();
-    }
-    ctx.beginPath(); ctx.arc(sx,sy,rw*.018,0,Math.PI*2);
-    ctx.fillStyle=b7>0?`rgba(255,205,125,${.4+b7*.5})`:'rgba(65,50,30,.7)';
-    ctx.fill(); ctx.strokeStyle='rgba(200,155,80,.7)'; ctx.lineWidth=1; ctx.stroke();
-    ctx.fillStyle='rgba(180,145,75,.6)'; ctx.font=`${Math.max(8,rw*.028)}px sans-serif`;
-    ctx.textAlign='right'; ctx.fillText('壁燈',sx-rw*.025,sy+rw*.014);
-  }
-
-  // Switch labels
-  ctx.fillStyle='rgba(180,80,80,.6)'; ctx.font=`${Math.max(8,rw*.03)}px sans-serif`;
-  ctx.textAlign='left';
-  // Right S₃ group (circuit 1)
-  ctx.fillText('S₃',px(.88),py(.34)); ctx.fillText('S₃',px(.88),py(.40)); 
-  // Left S₃ group (circuit 3)
-  ctx.fillText('S₃',px(.02),py(.66)); ctx.fillText('S₃',px(.02),py(.72)); ctx.fillText('S₃',px(.02),py(.78));
-  // Bottom S S
-  ctx.fillText('S',px(.32),py(.96)); ctx.fillText('S',px(.42),py(.96));
-
-  // Legend
-  const leg=[
-    {col:'#e8c060',lbl:'迴路① 上區',id:1},
-    {col:'#d4a840',lbl:'迴路② 中區',id:2},
-    {col:'#b8902a',lbl:'迴路③ 下區',id:3},
-    {col:'#e07030',lbl:'左牆層板燈',id:4},
-    {col:'#e06020',lbl:'底部層板燈',id:5},
-    {col:'#f0e0a0',lbl:'野口勇 Akari',id:6},
-    {col:'#c09060',lbl:'門口壁燈',id:7},
-  ];
-  ctx.font=`${Math.max(9,rw*.032)}px Noto Sans TC`;
-  leg.forEach((l,i)=>{
-    const a=C[l.id].on?1:.3;
-    ctx.globalAlpha=a;
-    ctx.fillStyle=l.col; ctx.beginPath(); ctx.arc(rx-rw*.52+8,ry+14+i*17,4.5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(200,180,130,.85)'; ctx.textAlign='left'; ctx.fillText(l.lbl,rx-rw*.52+18,ry+18+i*17);
-    ctx.globalAlpha=1;
-  });
+  const rx=(W-rw)/2+30, ry=(H-rh)/2;
+  return {rx,ry,rw,rh};
 }
+const px=(x,r)=>r.rx+x*r.rw;
+const py=(y,r)=>r.ry+y*r.rh;
 
-function drawWires(ctx,rx,ry,rw,ah){
-  ctx.save();
-  ctx.setLineDash([3,5]);
-  ctx.globalAlpha=.18; ctx.strokeStyle='rgba(200,180,120,1)'; ctx.lineWidth=1;
-  // Circuit 1 top loop
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.28,ry+ah*.09);
-  ctx.bezierCurveTo(rx+rw*.28,ry,rx+rw*.80,ry,rx+rw*.72,ry+ah*.20);
+// ── 繪製平面配置圖 ──
+function drawPlan(){
+  const ctx=pctx, R=roomBounds();
+  const theme = getThemeColors();
+  
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=theme.bgPlan; ctx.fillRect(0,0,W,H);
+
+  // 室內範圍
+  ctx.fillStyle=theme.bgRoom;
+  ctx.fillRect(R.rx,R.ry,R.rw,R.rh);
+
+  // 外牆線
+  ctx.strokeStyle=theme.wallBdr; ctx.lineWidth=2.5;
+  ctx.strokeRect(R.rx,R.ry,R.rw,R.rh);
+
+  // 靠窗側玻璃結構
+  ctx.strokeStyle='rgba(180,220,255,.3)'; ctx.lineWidth=1.5;
+  ctx.strokeRect(px(.18,R),R.ry-1, R.rw*.55, 5);
+  ctx.fillStyle='rgba(180,220,255,.1)';
+  ctx.fillRect(px(.18,R),R.ry, R.rw*.55, Math.max(1, R.rh*.03));
+
+  // TV 牆 (左側)
+  ctx.fillStyle='#2d2218';
+  ctx.fillRect(R.rx, py(.04,R), R.rw*.19, R.rh*.46);
+  ctx.strokeStyle=theme.wallBdr; ctx.lineWidth=1;
+  ctx.strokeRect(R.rx, py(.04,R), R.rw*.19, R.rh*.46);
+  ctx.fillStyle='#0a0806';
+  ctx.fillRect(px(.02,R), py(.08,R), R.rw*.15, R.rh*.20);
+  ctx.strokeStyle='rgba(80,60,30,.6)'; ctx.lineWidth=.5;
+  ctx.strokeRect(px(.02,R), py(.08,R), R.rw*.15, R.rh*.20);
+  
+  ctx.fillStyle=theme.labelColor; ctx.font=`${Math.max(8,R.rw*.045)}px Noto Sans TC`;
+  ctx.textAlign='center'; ctx.fillText('TV牆',px(.095,R), py(.31,R));
+
+  // 沙發區
+  ctx.fillStyle=theme.furnitureSofa;
+  ctx.fillRect(px(.60,R), py(.04,R), R.rw*.38, R.rh*.30);
+  ctx.strokeStyle=theme.furnitureSofaBdr; ctx.lineWidth=1;
+  ctx.strokeRect(px(.60,R), py(.04,R), R.rw*.38, R.rh*.30);
+  ctx.fillStyle='rgba(160,140,110,.2)'; ctx.fillRect(px(.60,R),py(.04,R),R.rw*.38,Math.max(1, R.rh*.06));
+  ctx.fillStyle='rgba(180,160,130,.15)';
+  ctx.fillRect(px(.60,R),py(.04,R),R.rw*.05,R.rh*.30);
+  ctx.fillStyle=theme.itemText; ctx.font=`${Math.max(7,R.rw*.038)}px sans-serif`;
+  ctx.textAlign='center'; ctx.fillText('沙發',px(.79,R),py(.22,R));
+  ctx.fillStyle='rgba(140,120,90,.4)';
+  ctx.beginPath(); ctx.arc(px(.73,R),py(.16,R),Math.max(1, R.rw*.028),0,Math.PI*2); ctx.fill();
+
+  // 茶几
+  ctx.fillStyle=theme.furnitureCoffee;
+  ctx.fillRect(px(.38,R),py(.20,R),R.rw*.18,R.rh*.12);
+  ctx.strokeStyle='rgba(150,110,60,.35)'; ctx.lineWidth=.8;
+  ctx.strokeRect(px(.38,R),py(.20,R),R.rw*.18,R.rh*.12);
+
+  // 圓形餐桌
+  const dtx=px(.50,R), dty=py(.68,R), dtr=Math.max(1, R.rw*.14);
+  ctx.fillStyle=theme.furnitureTable;
+  ctx.beginPath(); ctx.arc(dtx,dty,dtr,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(150,110,60,.5)'; ctx.lineWidth=1;
   ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.28,ry+ah*.09);
-  ctx.bezierCurveTo(rx+rw*.38,ry+ah*.04,rx+rw*.45,ry+ah*.04,rx+rw*.52,ry+ah*.09);
-  ctx.stroke();
-  // Circuit 2 mid loop
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.25,ry+ah*.38);
-  ctx.bezierCurveTo(rx+rw*.15,ry+ah*.30,rx+rw*.15,ry+ah*.50,rx+rw*.25,ry+ah*.38);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.25,ry+ah*.38);
-  ctx.bezierCurveTo(rx+rw*.38,ry+ah*.35,rx+rw*.55,ry+ah*.35,rx+rw*.63,ry+ah*.42);
-  ctx.stroke();
-  // Circuit 3 lower loop
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.25,ry+ah*.60);
-  ctx.bezierCurveTo(rx+rw*.10,ry+ah*.60,rx+rw*.10,ry+ah*.80,rx+rw*.28,ry+ah*.76);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.25,ry+ah*.60);
-  ctx.bezierCurveTo(rx+rw*.40,ry+ah*.55,rx+rw*.65,ry+ah*.55,rx+rw*.72,ry+ah*.60);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rx+rw*.52,ry+ah*.76);
-  ctx.bezierCurveTo(rx+rw*.62,ry+ah*.78,rx+rw*.72,ry+ah*.78,rx+rw*.72,ry+ah*.76);
-  ctx.stroke();
+  ctx.strokeStyle='rgba(150,110,60,.3)'; ctx.lineWidth=.5;
+  ctx.beginPath(); ctx.moveTo(dtx-dtr*.7,dty); ctx.lineTo(dtx+dtr*.7,dty); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(dtx,dty-dtr*.7); ctx.lineTo(dtx,dty+dtr*.7); ctx.stroke();
+  [{a:-.55},{a:.55},{a:Math.PI+.2}].forEach(({a})=>{
+    const cx=dtx+Math.cos(a)*(dtr+R.rw*.055), cy=dty+Math.sin(a)*(dtr+R.rw*.055);
+    ctx.fillStyle=theme.chairFill;
+    ctx.beginPath(); ctx.arc(cx,cy,Math.max(1, R.rw*.05),0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(180,160,130,.3)'; ctx.lineWidth=.8; ctx.stroke();
+  });
+  ctx.fillStyle=theme.itemText; ctx.font=`${Math.max(7,R.rw*.035)}px sans-serif`;
+  ctx.textAlign='center'; ctx.fillText('餐桌',dtx,dty+dtr*.3);
+
+  // 餐邊櫃
+  ctx.fillStyle='#281d0e';
+  ctx.fillRect(px(.25,R), py(.88,R), R.rw*.65, R.rh*.09);
+  ctx.strokeStyle='rgba(160,120,55,.4)'; ctx.lineWidth=1;
+  ctx.strokeRect(px(.25,R), py(.88,R), R.rw*.65, R.rh*.09);
+  ctx.fillStyle='rgba(150,120,60,.55)'; ctx.font=`${Math.max(7,R.rw*.035)}px sans-serif`;
+  ctx.textAlign='center';
+  ctx.fillText('收納櫃',px(.37,R),py(.935,R));
+  ctx.fillText('餐邊櫃',px(.62,R),py(.935,R));
+
+  // 玄關
+  ctx.fillStyle=theme.entryFill;
+  ctx.fillRect(R.rx, py(.82,R), R.rw*.2, R.rh*.18);
+  ctx.strokeStyle='rgba(160,130,70,.3)'; ctx.lineWidth=1;
+  ctx.strokeRect(R.rx, py(.82,R), R.rw*.2, R.rh*.18);
+  ctx.fillStyle=theme.itemText; ctx.font=`${Math.max(7,R.rw*.036)}px sans-serif`;
+  ctx.textAlign='center'; ctx.fillText('玄關',px(.10,R),py(.92,R));
+
+  // 遍歷所有迴路繪製其平面光影與光暈
+  circuits.forEach(c => {
+    if (!c.on || c.b <= 0) return;
+    const b = c.b / 100;
+
+    // 1. 左側牆面電視牆條燈 (strip_left)
+    if (c.type === 'strip_left') {
+      const g=ctx.createLinearGradient(R.rx,0,R.rx+R.rw*.25,0);
+      g.addColorStop(0,`rgba(255,148,30,${b*.65})`); g.addColorStop(1,'rgba(255,110,10,0)');
+      ctx.fillStyle=g; ctx.fillRect(R.rx+R.rw*.19,py(.04,R),R.rw*.25,R.rh*.46);
+      ctx.strokeStyle=`rgba(255,140,25,${b*.9})`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(R.rx+R.rw*.19,py(.04,R)); ctx.lineTo(R.rx+R.rw*.19,py(.50,R)); ctx.stroke();
+    }
+
+    // 2. 底部餐邊櫃條燈 (strip_bottom)
+    if (c.type === 'strip_bottom') {
+      const g2=ctx.createLinearGradient(0,py(.88,R),0,py(.88,R)-R.rh*.12);
+      g2.addColorStop(0,`rgba(255,140,25,${b*.6})`); g2.addColorStop(1,'rgba(255,110,10,0)');
+      ctx.fillStyle=g2; ctx.fillRect(px(.25,R),py(.88,R)-R.rh*.12,R.rw*.65,R.rh*.12);
+      ctx.strokeStyle=`rgba(255,135,22,${b*.9})`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(px(.25,R),py(.88,R)); ctx.lineTo(px(.90,R),py(.88,R)); ctx.stroke();
+    }
+
+    // 3. 左側壁燈 (sconce_left)
+    if (c.type === 'sconce_left' && c.lights && c.lights.length > 0) {
+      const l = c.lights[0];
+      const sx = R.rx + 2, sy = py(l.y, R);
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx + R.rw*.12, sy, R.rw*.16);
+      sg.addColorStop(0, `rgba(255,195,105,${b*.55})`); sg.addColorStop(1, 'rgba(255,165,55,0)');
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sx+R.rw*.04, sy, R.rw*.14, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 4. 吊燈主燈 (pendant)
+    if (c.type === 'pendant' && c.lights && c.lights.length > 0) {
+      const l = c.lights[0];
+      const lx = px(l.x, R), ly = py(l.y, R);
+      const gn = ctx.createRadialGradient(lx,ly,0,lx,ly,R.rw*.12);
+      gn.addColorStop(0,`rgba(255,232,155,${b*.42})`); gn.addColorStop(1,'rgba(255,200,75,0)');
+      ctx.fillStyle=gn; ctx.beginPath(); ctx.arc(lx,ly,R.rw*.12,0,Math.PI*2); ctx.fill();
+    }
+
+    // 5. 崁燈渲染 (downlight)
+    if (c.type === 'downlight' && c.lights) {
+      const t = CT[c.col || 'warm'];
+      const r = Math.max(4.5, R.rw*.023);
+      c.lights.forEach(l => {
+        const lx = px(l.x, R), ly = py(l.y, R);
+        const gl=ctx.createRadialGradient(lx,ly,0,lx,ly,r*5.5);
+        gl.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.36})`); gl.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(lx,ly,r*5.5,0,Math.PI*2); ctx.fill();
+      });
+    }
+  });
+
+  // 實體器具標示 (最上層)
+  circuits.forEach(c => {
+    const isLit = c.on && c.b > 0;
+    const b = c.b / 100;
+
+    // 崁燈實體
+    if (c.type === 'downlight' && c.lights) {
+      const t = CT[c.col || 'warm'];
+      const r = Math.max(4.5, R.rw*.023);
+      c.lights.forEach(l => {
+        const lx = px(l.x, R), ly = py(l.y, R);
+        ctx.beginPath(); ctx.arc(lx,ly,r,0,Math.PI*2);
+        ctx.fillStyle = isLit ? `rgba(${t.r},${t.g},${t.b},${.33+b*.62})` : 'rgba(120,105,80,.9)'; 
+        ctx.fill();
+        ctx.strokeStyle = isLit ? `rgba(${t.r},${t.g},${t.b},.75)` : 'rgba(95,78,42,.38)';
+        ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath(); ctx.arc(lx,ly,r*.42,0,Math.PI*2);
+        ctx.strokeStyle = isLit ? `rgba(255,255,255,${b*.45})` : 'rgba(65,50,24,.4)'; ctx.lineWidth=.5; ctx.stroke();
+      });
+    }
+
+    // 吊燈實體
+    if (c.type === 'pendant' && c.lights && c.lights.length > 0) {
+      const l = c.lights[0];
+      const lx = px(l.x, R), ly = py(l.y, R);
+      ctx.strokeStyle='rgba(80,62,34,.5)'; ctx.lineWidth=.8;
+      ctx.beginPath(); ctx.moveTo(lx,R.ry); ctx.lineTo(lx,ly-R.rw*.03); ctx.stroke();
+      ctx.save(); ctx.translate(lx,ly); ctx.scale(1.55,1);
+      ctx.beginPath(); ctx.arc(0,0,R.rw*.03,0,Math.PI*2);
+      ctx.fillStyle = isLit ? `rgba(255,238,172,${.32+b*.5})` : theme.sconceFill; ctx.fill();
+      ctx.strokeStyle = isLit ? `rgba(255,215,118,.8)` : 'rgba(85,65,32,.45)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle=theme.itemText; ctx.font=`${Math.max(8,R.rw*.036)}px Noto Sans TC`;
+      ctx.textAlign='center'; ctx.fillText(c.name.split(' · ')[0], lx, ly+R.rw*.065);
+    }
+
+    // 壁燈實體
+    if (c.type === 'sconce_left' && c.lights && c.lights.length > 0) {
+      const l = c.lights[0];
+      const sx = R.rx, sy = py(l.y, R);
+      ctx.beginPath(); ctx.arc(sx, sy, R.rw*.018, 0, Math.PI*2);
+      ctx.fillStyle = isLit ? theme.sconceLitFill : theme.sconceFill; ctx.fill();
+      ctx.strokeStyle='rgba(190,148,72,.6)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=theme.itemText; ctx.font=`${Math.max(7,R.rw*.035)}px sans-serif`;
+      ctx.textAlign='left'; ctx.fillText('壁燈', sx+R.rw*.025, sy+R.rw*.014);
+    }
+  });
+
+  // 圖例與連線 (弱電圖虛線)
+  ctx.save(); ctx.setLineDash([2,5]); ctx.globalAlpha=.15;
+  ctx.strokeStyle='rgba(200,175,110,1)'; ctx.lineWidth=.8;
+  ctx.beginPath(); ctx.moveTo(px(.28,R),py(.10,R));
+  ctx.bezierCurveTo(px(.28,R),R.ry-5,px(.72,R),R.ry-5,px(.72,R),py(.10,R)); ctx.stroke();
   ctx.restore();
 }
 
-// ── Simulation drawing ─────────────────────────────────────────────
-function drawSim(){
-  const ctx=sctx;
-  ctx.clearRect(0,0,W,H); ctx.fillStyle='#08070400'; ctx.fillRect(0,0,W,H);
+// ── 3D 空間實際尺寸對照 ──
+const ROOM_W = 5;
+const ROOM_H = 3;
+const ROOM_D = 8.6;
 
-  // Perspective room: tall living room, camera at ~sofa level looking toward TV wall
-  const flY=H*.66, ceilY=H*.04;
-  const vanX=W*.48, vanY=H*.30;
-  const lwall=W*.06, rwall=W*.94;
+function initThree() {
+  if (scene) return; 
 
-  // Ceiling
-  ctx.fillStyle='#191610'; ctx.beginPath();
-  ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.lineTo(rwall,ceilY); ctx.lineTo(lwall,ceilY);
-  ctx.closePath(); ctx.fill();
+  // 1. 初始化 3D 場景
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(getThemeColors().bgSim);
 
-  // Floor
-  const flGrd=ctx.createLinearGradient(0,flY,0,H);
-  flGrd.addColorStop(0,'#252018'); flGrd.addColorStop(1,'#151210');
-  ctx.fillStyle=flGrd; ctx.beginPath();
-  ctx.moveTo(0,H); ctx.lineTo(lwall,flY); ctx.lineTo(rwall,flY); ctx.lineTo(W,H);
-  ctx.closePath(); ctx.fill();
+  // 2. 配置 3D 透視相機
+  camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+  updateCameraPosition();
 
-  // Left wall
-  ctx.fillStyle='#141210'; ctx.beginPath();
-  ctx.moveTo(0,0); ctx.lineTo(lwall,ceilY); ctx.lineTo(lwall,flY); ctx.lineTo(0,H);
-  ctx.closePath(); ctx.fill();
-
-  // Right wall
-  ctx.fillStyle='#121010'; ctx.beginPath();
-  ctx.moveTo(W,0); ctx.lineTo(rwall,ceilY); ctx.lineTo(rwall,flY); ctx.lineTo(W,H);
-  ctx.closePath(); ctx.fill();
-
-  // Back wall (TV wall area)
-  const bwGrd=ctx.createLinearGradient(0,ceilY,0,flY);
-  bwGrd.addColorStop(0,'#1a1713'); bwGrd.addColorStop(1,'#222018');
-  ctx.fillStyle=bwGrd; ctx.beginPath();
-  ctx.moveTo(lwall,ceilY); ctx.lineTo(rwall,ceilY); ctx.lineTo(rwall,flY); ctx.lineTo(lwall,flY);
-  ctx.closePath(); ctx.fill();
-
-  // Walnut wood panel (left half of back wall)
-  const wpX=lwall, wpW=(rwall-lwall)*.38;
-  ctx.fillStyle='#2e1e0e'; ctx.fillRect(wpX,ceilY,wpW,flY-ceilY);
-  // Wood grain
-  ctx.strokeStyle='rgba(20,10,5,.5)'; ctx.lineWidth=.5;
-  for(let i=0;i<8;i++){ctx.beginPath();ctx.moveTo(wpX+i*(wpW/8),ceilY);ctx.lineTo(wpX+i*(wpW/8),flY);ctx.stroke();}
-
-  // TV cabinet area
-  const tvCabY=flY-(flY-ceilY)*.28;
-  const tvCabX=wpX+wpW, tvCabW=(rwall-lwall)*.52;
-  ctx.fillStyle='#271a0a'; ctx.fillRect(tvCabX,tvCabY,(rwall-tvCabX),flY-tvCabY);
-
-  // LED strip under cabinet (Circuit 5)
-  if(C[5].on&&C[5].b>0){
-    const b=C[5].b/100;
-    const sg=ctx.createLinearGradient(0,tvCabY+(flY-tvCabY)*.18,0,flY);
-    sg.addColorStop(0,`rgba(255,160,40,${b*.6})`); sg.addColorStop(1,'rgba(255,120,20,0)');
-    ctx.fillStyle=sg; ctx.fillRect(tvCabX,tvCabY+(flY-tvCabY)*.18,(rwall-tvCabX),flY-tvCabY);
-    ctx.fillStyle=`rgba(255,170,50,${b})`; ctx.fillRect(tvCabX,tvCabY+(flY-tvCabY)*.18,(rwall-tvCabX),2);
-  }
-
-  // TV screen
-  const tvX=tvCabX+tvCabW*.05, tvW2=tvCabW*.85;
-  const tvY2=ceilY+(flY-ceilY)*.28, tvH2=(flY-ceilY)*.32;
-  ctx.fillStyle='#050403'; ctx.fillRect(tvX,tvY2,tvW2,tvH2);
-  ctx.strokeStyle='#1a150c'; ctx.lineWidth=1; ctx.strokeRect(tvX,tvY2,tvW2,tvH2);
-
-  // Left wall strip (Circuit 4) - glowing left edge
-  if(C[4].on&&C[4].b>0){
-    const b=C[4].b/100;
-    const lg=ctx.createLinearGradient(lwall,0,lwall+W*.15,0);
-    lg.addColorStop(0,`rgba(255,155,35,${b*.55})`); lg.addColorStop(1,'rgba(255,130,20,0)');
-    ctx.fillStyle=lg; ctx.fillRect(lwall,ceilY+(flY-ceilY)*.05,W*.15,(flY-ceilY)*.88);
-    ctx.fillStyle=`rgba(255,148,30,${b})`; ctx.fillRect(lwall,ceilY+(flY-ceilY)*.05,2,(flY-ceilY)*.88);
-  }
-
-  // ── Ceiling lights ──────────────────────────────────────────────
-  // Define 3 rows of ceiling light positions in perspective
-  // Row ordering: near camera = lower on screen, far = higher
-  // Row A (far / top, Circuit 1): y ~ ceilY+10
-  // Row B (mid, Circuit 2): y ~ ceilY+30
-  // Row C (near, Circuit 3): y ~ ceilY+60–80
-
-  // Helper: perspective x from normalized plan position
-  const pX=(nx,row)=>{
-    // row 0=far,1=mid,2=near  — converge toward vanX
-    const t=[.82,.60,.30][row]; // t=0 far, t=1 near
-    return vanX+(nx-vanX)*(1-t*.6);
-  };
-
-  // Circuit 1 – far row (top of ceiling in perspective)
-  const r1y=ceilY+(H*.018);
-  const r1lights=[];
-  if(C[1].cnt>=1) r1lights.push({nx:lwall+(rwall-lwall)*.32});
-  if(C[1].cnt>=2) r1lights.push({nx:lwall+(rwall-lwall)*.54});
-  if(C[1].cnt>=3) r1lights.push({nx:lwall+(rwall-lwall)*.72});
-  if(C[1].cnt>=4) r1lights.push({nx:lwall+(rwall-lwall)*.20});
-  if(C[1].cnt>=5) r1lights.push({nx:lwall+(rwall-lwall)*.67});
-  if(C[1].cnt>=6) r1lights.push({nx:lwall+(rwall-lwall)*.82});
-  r1lights.forEach(l=>drawCeilLight(ctx,l.nx,r1y,1,flY,H,0));
-
-  // Circuit 2 – mid row
-  const r2y=ceilY+(H*.052);
-  const r2lights=[];
-  if(C[2].cnt>=1) r2lights.push({nx:lwall+(rwall-lwall)*.28});
-  if(C[2].cnt>=2) r2lights.push({nx:lwall+(rwall-lwall)*.52});
-  if(C[2].cnt>=3) r2lights.push({nx:lwall+(rwall-lwall)*.70});
-  if(C[2].cnt>=4) r2lights.push({nx:lwall+(rwall-lwall)*.18});
-  if(C[2].cnt>=5) r2lights.push({nx:lwall+(rwall-lwall)*.62});
-  if(C[2].cnt>=6) r2lights.push({nx:lwall+(rwall-lwall)*.80});
-  r2lights.forEach(l=>drawCeilLight(ctx,l.nx,r2y,2,flY,H,1));
-
-  // Circuit 3 – near rows (2 rows)
-  const r3ay=ceilY+(H*.10), r3by=ceilY+(H*.175);
-  const r3alights=[], r3blights=[];
-  if(C[3].cnt>=1) r3alights.push({nx:lwall+(rwall-lwall)*.26});
-  if(C[3].cnt>=2) r3alights.push({nx:lwall+(rwall-lwall)*.50});
-  if(C[3].cnt>=3) r3alights.push({nx:lwall+(rwall-lwall)*.70});
-  if(C[3].cnt>=4) r3blights.push({nx:lwall+(rwall-lwall)*.30});
-  if(C[3].cnt>=5) r3blights.push({nx:lwall+(rwall-lwall)*.52});
-  if(C[3].cnt>=6) r3blights.push({nx:lwall+(rwall-lwall)*.72});
-  if(C[3].cnt>=7) r3alights.push({nx:lwall+(rwall-lwall)*.15});
-  if(C[3].cnt>=8) r3alights.push({nx:lwall+(rwall-lwall)*.82});
-  if(C[3].cnt>=9) r3blights.push({nx:lwall+(rwall-lwall)*.18});
-  r3alights.forEach(l=>drawCeilLight(ctx,l.nx,r3ay,3,flY,H,2));
-  r3blights.forEach(l=>drawCeilLight(ctx,l.nx,r3by,3,flY,H,2.5));
-
-  // ── Noguchi Akari 45A ───────────────────────────────────────────
-  {
-    const b6=C[6].on?C[6].b/100:0;
-    // Pendant position: center-left, hanging low in front area
-    const px6=lwall+(rwall-lwall)*.35, py6=flY-(flY-ceilY)*.40;
-    const pr=H*.065;
-
-    // Wire
-    ctx.strokeStyle='rgba(90,70,40,.5)'; ctx.lineWidth=.8;
-    ctx.beginPath(); ctx.moveTo(px6,ceilY+H*.025); ctx.lineTo(px6,py6-pr); ctx.stroke();
-
-    if(b6>0){
-      // Outer ambient glow
-      const ag=ctx.createRadialGradient(px6,py6,0,px6,py6,pr*4.5);
-      ag.addColorStop(0,`rgba(255,230,155,${b6*.28})`); ag.addColorStop(1,'rgba(255,200,80,0)');
-      ctx.fillStyle=ag; ctx.beginPath(); ctx.ellipse(px6,py6,pr*4.5,pr*3,0,0,Math.PI*2); ctx.fill();
-      // Floor pool
-      const fp=ctx.createRadialGradient(px6,flY,0,px6,flY,H*.22);
-      fp.addColorStop(0,`rgba(255,220,130,${b6*.42})`);
-      fp.addColorStop(.5,`rgba(255,200,100,${b6*.18})`);
-      fp.addColorStop(1,'rgba(255,180,60,0)');
-      ctx.fillStyle=fp; ctx.beginPath(); ctx.ellipse(px6,flY,H*.22,H*.055,0,0,Math.PI*2); ctx.fill();
-    }
-
-    // Lantern body
-    ctx.save(); ctx.translate(px6,py6); ctx.scale(1,1.35);
-    const bg=ctx.createRadialGradient(pr*.22,-pr*.12,0,0,0,pr);
-    if(b6>0){
-      bg.addColorStop(0,`rgba(255,245,205,${.55+b6*.35})`);
-      bg.addColorStop(.65,`rgba(255,215,140,${.28+b6*.42})`);
-      bg.addColorStop(1,`rgba(200,155,70,${.18+b6*.22})`);
-    } else {
-      bg.addColorStop(0,'rgba(72,58,36,.6)'); bg.addColorStop(1,'rgba(45,35,18,.4)');
-    }
-    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(0,0,pr,0,Math.PI*2); ctx.fill();
-    if(b6>0){
-      ctx.strokeStyle=`rgba(180,140,75,${b6*.25})`; ctx.lineWidth=.5;
-      for(let i=0;i<10;i++){const a=i/10*Math.PI*2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*pr,Math.sin(a)*pr);ctx.stroke();}
-    }
-    ctx.restore();
-
-    ctx.fillStyle='rgba(200,168,95,.45)';
-    ctx.font=`${Math.max(9,H*.016)}px Noto Sans TC`; ctx.textAlign='center';
-    ctx.fillText('Akari 45A',px6,py6+pr*1.55+12);
-  }
-
-  // ── Wall sconce ─────────────────────────────────────────────────
-  {
-    const b7=C[7].on?C[7].b/100:0;
-    const sx=lwall+W*.02, sy=ceilY+(flY-ceilY)*.48;
-    if(b7>0){
-      const wg=ctx.createRadialGradient(sx+14,sy,0,sx+55,sy,W*.11);
-      wg.addColorStop(0,`rgba(255,200,105,${b7*.6})`); wg.addColorStop(1,'rgba(255,165,55,0)');
-      ctx.fillStyle=wg; ctx.beginPath(); ctx.arc(sx+35,sy,W*.09,0,Math.PI*2); ctx.fill();
-    }
-    ctx.fillStyle=b7>0?`rgba(255,200,120,${.45+b7*.45})`:'rgba(55,42,24,.6)';
-    ctx.fillRect(sx-3,sy-9,6,18);
-    ctx.beginPath(); ctx.arc(sx+5,sy,7,Math.PI/2*3,Math.PI/2);
-    ctx.fillStyle=b7>0?`rgba(255,225,155,${b7*.85})`:'rgba(45,35,18,.5)'; ctx.fill();
-  }
-
-  // ── Furniture silhouettes ───────────────────────────────────────
-  // Sofa (right side, foreground)
-  const sfX=rwall-(rwall-lwall)*.38, sfW=(rwall-lwall)*.32, sfY=flY;
-  ctx.fillStyle='rgba(42,35,24,.95)';
-  ctx.fillRect(sfX,sfY-H*.14,sfW,H*.14);
-  ctx.fillRect(sfX-W*.018,sfY-H*.19,W*.018,H*.19);
-  ctx.fillRect(sfX+sfW,sfY-H*.19,W*.018,H*.19);
-  // Coffee table
-  ctx.fillStyle='rgba(55,38,18,.9)';
-  ctx.fillRect(sfX+sfW*.1,sfY-H*.04,(rwall-lwall)*.18,H*.04);
-  // Plant
-  ctx.fillStyle='rgba(28,36,22,.8)'; ctx.beginPath();
-  ctx.ellipse(rwall-(rwall-lwall)*.08,sfY-H*.14,W*.022,H*.11,-.1,0,Math.PI*2); ctx.fill();
-
-  // Status
-  const active=Object.values(C).filter(c=>c.on).length;
-  ctx.fillStyle='rgba(200,172,108,.45)'; ctx.font=`${Math.max(9,H*.014)}px Noto Sans TC`; ctx.textAlign='left';
-  ctx.fillText(`${active} 個迴路開啟`,lwall+8,H-14);
-}
-
-function drawCeilLight(ctx,cx,cy,cid,flY,H,rowScale){
-  const c=C[cid]; const b=c.on?c.b/100:0;
-  const t=CT[c.col||'warm']; const r=Math.max(3.5,H*.009);
-
-  if(b>0){
-    // Ceiling bright spot
-    const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,r*3);
-    cg.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.85})`);
-    cg.addColorStop(.4,`rgba(${t.r},${t.g},${t.b},${b*.3})`);
-    cg.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(cx,cy,r*3,0,Math.PI*2); ctx.fill();
-
-    // Light cone to floor (elliptical pool)
-    const coneR=H*(0.18+rowScale*.05);
-    const floorY2=flY+(H-flY)*.15;
-    const fg=ctx.createRadialGradient(cx,floorY2,0,cx,floorY2,coneR);
-    fg.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.22})`);
-    fg.addColorStop(.4,`rgba(${t.r},${t.g},${t.b},${b*.09})`);
-    fg.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=fg; ctx.beginPath();
-    ctx.ellipse(cx,floorY2,coneR,coneR*.28,0,0,Math.PI*2); ctx.fill();
-  }
-
-  // Fixture dot
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-  ctx.fillStyle=b>0?`rgba(255,255,240,${b})`:'rgba(40,34,20,.8)'; ctx.fill();
-}
-
-// ── Controls ───────────────────────────────────────────────────────
-function render(){view==='plan'?drawPlan():drawSim();}
-
-function tog(id){
-  C[id].on=!C[id].on;
-  const s=document.getElementById('sw'+id);
-  s.textContent=C[id].on?'ON':'OFF'; s.className='sw'+(C[id].on?' on':'');
-  document.getElementById('card'+id).className='card'+(C[id].on?' on':'');
-  render();
-}
-function upd(id){
-  const v=+document.getElementById('br'+id).value;
-  C[id].b=v; document.getElementById('bv'+id).textContent=v+'%'; render();
-}
-function chg(id,d){
-  if(!C[id].cnt) return;
-  C[id].cnt=Math.max(1,Math.min(C[id].max,C[id].cnt+d));
-  document.getElementById('cnt'+id).textContent=C[id].cnt; render();
-}
-function kc(id,col){
-  C[id].col=col;
-  ['warm','neu','cool'].forEach(c=>{
-    const el=document.getElementById('k'+id+c[0]);
-    if(el) el.className='kb'+(c===col?' on':'');
+  // 3. 建立帶有抗鋸齒與 preserveDrawingBuffer 的 WebGL Renderer (供下載畫面使用)
+  renderer = new THREE.WebGLRenderer({
+    canvas: sc2,
+    antialias: true,
+    preserveDrawingBuffer: true
   });
-  render();
-}
-function sv(v){
-  view=v;
-  document.getElementById('pc').style.display=v==='plan'?'block':'none';
-  document.getElementById('sc').style.display=v==='sim'?'block':'none';
-  document.getElementById('t1').className='tab'+(v==='plan'?' on':'');
-  document.getElementById('t2').className='tab'+(v==='sim'?' on':'');
-  document.getElementById('ht').textContent=v==='plan'?'拖曳崁燈可調整位置 · 雙擊刪除':'即時燈光透視模擬';
-  render();
-}
-function scene(s){
-  const sc2={
-    all: {1:[true,85],2:[true,85],3:[true,85],4:[true,65],5:[true,60],6:[true,80],7:[true,70]},
-    relax:{1:[true,45],2:[true,35],3:[false,0],4:[true,45],5:[true,40],6:[true,70],7:[true,55]},
-    dim:  {1:[false,0],2:[false,0],3:[false,0],4:[true,20],5:[false,0],6:[false,0],7:[true,30]},
-    off:  {1:[false,0],2:[false,0],3:[false,0],4:[false,0],5:[false,0],6:[false,0],7:[false,0]},
-  };
-  Object.entries(sc2[s]).forEach(([id,[on,b]])=>{
-    C[id].on=on; C[id].b=b;
-    const sw=document.getElementById('sw'+id);
-    sw.textContent=on?'ON':'OFF'; sw.className='sw'+(on?' on':'');
-    document.getElementById('card'+id).className='card'+(on?' on':'');
-    document.getElementById('br'+id).value=b;
-    document.getElementById('bv'+id).textContent=b+'%';
-  });
-  render();
+  renderer.setSize(W, H);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // 4. 新增柔和環境光 (底光會隨著主題做對比強度調整)
+  ambientLight = new THREE.AmbientLight(0xffffff, getThemeColors().ambientIntensity);
+  scene.add(ambientLight);
+
+  // 5. 建立靜態家具模型
+  build3DObjects();
 }
 
-// ── Drag on plan ───────────────────────────────────────────────────
-let dg=null;
-pc.addEventListener('mousedown',e=>{
-  if(view!=='plan') return;
-  const rect=pc.getBoundingClientRect();
-  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  const rw2=Math.min(W-40,(H-40)*.58), ah2=Math.min(rw2/.58,H-40);
-  const rx2=(W-rw2)/2, ry2=(H-ah2)/2;
-  const r=Math.max(5,rw2*.024)*1.8;
-  const px2=x=>rx2+x*rw2, py2=y=>ry2+y*ah2;
-  const check=(arr,cid)=>{
-    for(let i=0;i<arr.length;i++){
-      if(i>=(C[cid].cnt??arr.length)) break;
-      if(Math.hypot(mx-px2(arr[i].x),my-py2(arr[i].y))<r){dg={arr,i,rx2,ry2,rw2,ah2};return true;}
-    } return false;
-  };
-  check(L1,1)||check(L2,2)||check(L3,3);
-  // Also Noguchi
-  if(!dg&&Math.hypot(mx-px2(LN.x),my-py2(LN.y))<r*1.3) dg={arr:null,noguchi:true,rx2,ry2,rw2,ah2};
-});
-pc.addEventListener('mousemove',e=>{
-  if(!dg||view!=='plan') return;
-  const rect=pc.getBoundingClientRect();
-  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  const {rx2,ry2,rw2,ah2}=dg;
-  const nx=(mx-rx2)/rw2, ny=(my-ry2)/ah2;
-  if(dg.noguchi){LN.x=nx;LN.y=ny;}
-  else{dg.arr[dg.i].x=nx; dg.arr[dg.i].y=ny;}
-  render();
-});
-pc.addEventListener('mouseup',()=>dg=null);
-pc.addEventListener('mouseleave',()=>dg=null);
-pc.addEventListener('dblclick',e=>{
-  if(view!=='plan') return;
-  const rect=pc.getBoundingClientRect();
-  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  const rw2=Math.min(W-40,(H-40)*.58), ah2=Math.min(rw2/.58,H-40);
-  const rx2=(W-rw2)/2, ry2=(H-ah2)/2;
-  const r=Math.max(5,rw2*.024)*1.8;
-  const px2=x=>rx2+x*rw2, py2=y=>ry2+y*ah2;
-  [[L1,1],[L2,2],[L3,3]].forEach(([arr,cid])=>{
-    const lim=C[cid].cnt??arr.length;
-    for(let i=0;i<lim;i++){
-      if(Math.hypot(mx-px2(arr[i].x),my-py2(arr[i].y))<r){
-        arr.splice(i,1); C[cid].cnt=Math.max(1,(C[cid].cnt||1)-1);
-        document.getElementById('cnt'+cid).textContent=C[cid].cnt;
-        render(); return;
+function updateCameraPosition() {
+  if (!camera) return;
+  camera.position.x = center.x + radius * Math.sin(theta) * Math.cos(phi);
+  camera.position.z = center.z + radius * Math.cos(theta) * Math.cos(phi);
+  camera.position.y = center.y + radius * Math.sin(phi);
+  camera.lookAt(center);
+
+  if (renderer && scene) {
+    renderer.render(scene, camera);
+  }
+}
+
+// 建立與平面 2D 配置 100% 同步的 3D 家具模型與牆體
+function build3DObjects() {
+  // 清空舊有的 3D 家具以防重疊
+  staticMeshes.forEach(mesh => scene.remove(mesh));
+  staticMeshes = [];
+
+  const themeColors = getThemeColors();
+  const isDarkTheme = isDark;
+
+  // 定義主題敏感的 3D 材質
+  const matFloor = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x221e16 : 0xdfd9cb, roughness: 0.65, metalness: 0.1 });
+  const matCeiling = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x141310 : 0xf2eee2, roughness: 0.9 });
+  const matWallLeft = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x15130f : 0xe6e0d2, roughness: 0.85 });
+  const matWallRight = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x13110e : 0xe6e0d2, roughness: 0.8 });
+  const matWallBack = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x191612 : 0xece6d8, roughness: 0.8 });
+  const matWindowFrame = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x2d3a44 : 0x5a6d7a, roughness: 0.2, metalness: 0.8 });
+  const matWindowGlass = new THREE.MeshBasicMaterial({ color: isDarkTheme ? 0x2a3e4d : 0x8bb1cc, transparent: true, opacity: 0.3 });
+  
+  const matTvCab = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x2c1e0e : 0x4d3c2c, roughness: 0.7 });
+  const matSofaBase = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x30281c : 0x7a6b58, roughness: 0.9 });
+  const matSofaBack = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x2b2217 : 0x6e5e4d, roughness: 0.9 });
+  const matSofaArm = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x2b2217 : 0x6e5e4d, roughness: 0.9 });
+  const matCoffeeTable = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x412d16 : 0x85684d, roughness: 0.8 });
+  const matTableTop = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x3d2b1c : 0x826043, roughness: 0.6 });
+  const matTableLeg = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x1f150c : 0x3d2b1d, roughness: 0.8 });
+  const matChairBase = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x353024 : 0x80735c, roughness: 0.8 });
+  const matSideboard = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x23180c : 0x54402b, roughness: 0.7 });
+  const matPartition = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x1b140d : 0x4f3e2e, roughness: 0.9 });
+
+  // 1. 地板與天花板
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), matFloor);
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor); staticMeshes.push(floor);
+
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), matCeiling);
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = ROOM_H;
+  scene.add(ceiling); staticMeshes.push(ceiling);
+
+  // 2. 牆面
+  const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, ROOM_H), matWallLeft);
+  leftWall.rotation.y = Math.PI / 2;
+  leftWall.position.x = -ROOM_W / 2; leftWall.position.y = ROOM_H / 2;
+  scene.add(leftWall); staticMeshes.push(leftWall);
+
+  const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, ROOM_H), matWallRight);
+  rightWall.rotation.y = -Math.PI / 2;
+  rightWall.position.x = ROOM_W / 2; rightWall.position.y = ROOM_H / 2;
+  scene.add(rightWall); staticMeshes.push(rightWall);
+
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_H), matWallBack);
+  backWall.position.z = -ROOM_D / 2; backWall.position.y = ROOM_H / 2;
+  scene.add(backWall); staticMeshes.push(backWall);
+
+  // 3. 2D-3D 精準大窗戶 (窗戶位於遠側)
+  const windowFrame = new THREE.Mesh(new THREE.BoxGeometry(2.75, 1.8, 0.05), matWindowFrame);
+  windowFrame.position.set(-0.225, 1.5, -ROOM_D / 2 + 0.03);
+  scene.add(windowFrame); staticMeshes.push(windowFrame);
+
+  const windowGlass = new THREE.Mesh(new THREE.PlaneGeometry(2.65, 1.7), matWindowGlass);
+  windowGlass.position.set(-0.225, 1.5, -ROOM_D / 2 + 0.06);
+  scene.add(windowGlass); staticMeshes.push(windowGlass);
+
+  // 4. 電視櫃與電視 (貼齊左側)
+  const tvCab = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.45, 3.956), matTvCab);
+  tvCab.position.set(-2.025, 0.225, -1.978);
+  scene.add(tvCab); staticMeshes.push(tvCab);
+
+  const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 1.72), new THREE.MeshStandardMaterial({ color: 0x060504, roughness: 0.25 }));
+  tvScreen.position.set(-2.25, 1.1, -2.752);
+  scene.add(tvScreen); staticMeshes.push(tvScreen);
+
+  // 5. 沙發與茶几
+  const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.3, 2.58), matSofaBase);
+  sofaBase.position.set(1.45, 0.15, -2.666);
+  scene.add(sofaBase); staticMeshes.push(sofaBase);
+
+  const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 0.4), matSofaBack);
+  sofaBack.position.set(1.45, 0.575, -2.666 - 2.58 / 2 + 0.2);
+  scene.add(sofaBack); staticMeshes.push(sofaBack);
+
+  const sofaArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 2.58), matSofaArm);
+  sofaArm.position.set(1.45 - 1.9 / 2 + 0.125, 0.475, -2.666);
+  scene.add(sofaArm); staticMeshes.push(sofaArm);
+
+  const coffeeTable = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 1.032), matCoffeeTable);
+  coffeeTable.position.set(-0.15, 0.175, -2.064);
+  scene.add(coffeeTable); staticMeshes.push(coffeeTable);
+
+  // 6. 圓形餐桌與餐椅
+  const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.04, 32), matTableTop);
+  tableTop.position.set(0, 0.75, 1.548);
+  scene.add(tableTop); staticMeshes.push(tableTop);
+
+  const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.75, 16), matTableLeg);
+  tableLeg.position.set(0, 0.375, 1.548);
+  scene.add(tableLeg); staticMeshes.push(tableLeg);
+
+  // 與平面椅子角度 100% 完全相符的餐椅
+  [{a:-0.55},{a:0.55},{a:Math.PI+0.2}].forEach(({a})=>{
+    const cx = Math.cos(a) * 0.975;
+    const cz = 1.548 + Math.sin(a) * 0.975;
+    
+    const chairBase = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.45), matChairBase);
+    chairBase.position.set(cx, 0.45, cz);
+    chairBase.rotation.y = -a + Math.PI/2;
+    scene.add(chairBase); staticMeshes.push(chairBase);
+
+    const legGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.45, 8);
+    const legMat = new THREE.MeshStandardMaterial({ color: isDarkTheme ? 0x111111 : 0x4a4235 });
+    [-0.18, 0.18].forEach(dx => {
+      [-0.18, 0.18].forEach(dz => {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(cx + dx, 0.225, cz + dz);
+        scene.add(leg); staticMeshes.push(leg);
+      });
+    });
+  });
+
+  // 7. 收納櫃與玄關隔屏
+  const sideboard = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.9, 0.774), matSideboard);
+  sideboard.position.set(0.375, 0.45, 3.655);
+  scene.add(sideboard); staticMeshes.push(sideboard);
+
+  const entrywayPartition = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 1.55), matPartition);
+  entrywayPartition.position.set(-1.5, 1.2, 3.527);
+  scene.add(entrywayPartition); staticMeshes.push(entrywayPartition);
+}
+
+// 同步並建立 3D 光源，當迴路開關、亮度、色溫拖曳時即時重建
+function syncThreeLights() {
+  if (!scene) return;
+
+  // 清理舊光源與發光幾何體
+  threeLightsList.forEach(l => scene.remove(l));
+  threeFixturesList.forEach(f => scene.remove(f));
+  threeLightsList = [];
+  threeFixturesList = [];
+
+  circuits.forEach(c => {
+    const isLit = c.on && c.b > 0;
+    const intensity = isLit ? (c.b / 100) * 1.6 : 0;
+
+    // 取得正確對應的色溫 (RGB)
+    let rgb = CT.warm;
+    if (c.col && CT[c.col]) {
+      // 淺色模式下使暖白光稍微明亮一些，加強光照感
+      rgb = (!isDark && c.col === 'warm') ? CT.warmLight : CT[c.col];
+    }
+    const threeColor = new THREE.Color(rgb.r / 255, rgb.g / 255, rgb.b / 255);
+
+    // ── 崁燈 ──
+    if (c.type === 'downlight' && c.lights) {
+      c.lights.forEach(l => {
+        const X = (l.x - 0.5) * ROOM_W;
+        const Z = (l.y - 0.5) * ROOM_D;
+        const Y = ROOM_H - 0.05;
+
+        // 實體發光嵌片
+        const fixGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16);
+        const fixMat = new THREE.MeshBasicMaterial({
+          color: isLit ? threeColor : (isDark ? 0x333333 : 0xbbbbbb)
+        });
+        const fixture = new THREE.Mesh(fixGeo, fixMat);
+        fixture.position.set(X, Y, Z);
+        scene.add(fixture);
+        threeFixturesList.push(fixture);
+
+        if (isLit) {
+          // 聚光燈 SpotLight (模擬崁燈的錐形切光)
+          const spotLight = new THREE.SpotLight(threeColor, intensity * (isDark ? 2.8 : 3.2), 9, Math.PI / 4, 0.6, 1);
+          spotLight.position.set(X, Y, Z);
+
+          const targetObj = new THREE.Object3D();
+          targetObj.position.set(X, 0, Z);
+          scene.add(targetObj);
+          spotLight.target = targetObj;
+
+          scene.add(spotLight);
+          threeLightsList.push(spotLight);
+          threeLightsList.push(targetObj);
+        }
+      });
+    }
+
+    // ── 電視牆層板條燈 ──
+    else if (c.type === 'strip_left') {
+      const X = -1.55;
+      const Y = 0.45; 
+
+      const stripGeo = new THREE.BoxGeometry(0.04, 0.04, 3.9);
+      const stripMat = new THREE.MeshBasicMaterial({
+        color: isLit ? threeColor : (isDark ? 0x333333 : 0xaaaaaa)
+      });
+      const stripMesh = new THREE.Mesh(stripGeo, stripMat);
+      stripMesh.position.set(X, Y, -1.978);
+      scene.add(stripMesh);
+      threeFixturesList.push(stripMesh);
+
+      if (isLit) {
+        // 洗牆光效
+        [-3.2, -2.0, -0.8].forEach(zPos => {
+          const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 1.2 : 1.5), 3.8);
+          pointLight.position.set(X + 0.1, Y + 0.1, zPos);
+          scene.add(pointLight);
+          threeLightsList.push(pointLight);
+        });
       }
     }
+
+    // ── 餐邊櫃層板條燈 ──
+    else if (c.type === 'strip_bottom') {
+      const Z = 3.28;
+      const Y = 0.95; 
+
+      const stripGeo = new THREE.BoxGeometry(3.2, 0.03, 0.03);
+      const stripMat = new THREE.MeshBasicMaterial({
+        color: isLit ? threeColor : (isDark ? 0x333333 : 0xaaaaaa)
+      });
+      const stripMesh = new THREE.Mesh(stripGeo, stripMat);
+      stripMesh.position.set(0.375, Y, Z);
+      scene.add(stripMesh);
+      threeFixturesList.push(stripMesh);
+
+      if (isLit) {
+        [-0.5, 0.5, 1.5].forEach(xPos => {
+          const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 1.1 : 1.4), 3.5);
+          pointLight.position.set(xPos, Y + 0.15, Z);
+          scene.add(pointLight);
+          threeLightsList.push(pointLight);
+        });
+      }
+    }
+
+    // ── 野口勇 Akari 吊燈 ──
+    else if (c.type === 'pendant' && c.lights && c.lights.length > 0) {
+      c.lights.forEach(l => {
+        const X = (l.x - 0.5) * ROOM_W;
+        const Z = (l.y - 0.5) * ROOM_D;
+        const Y = 1.35; 
+
+        // 野口勇紙燈罩幾何體
+        const lanGeo = new THREE.SphereGeometry(0.36, 32, 16);
+        lanGeo.scale(1.2, 0.9, 1.2);
+        const lanMat = new THREE.MeshBasicMaterial({
+          color: isLit ? 0xffffff : (isDark ? 0x888888 : 0xdddddd)
+        });
+        const lantern = new THREE.Mesh(lanGeo, lanMat);
+        lantern.position.set(X, Y, Z);
+        scene.add(lantern);
+        threeFixturesList.push(lantern);
+
+        // 吊線
+        const wireGeo = new THREE.CylinderGeometry(0.01, 0.01, ROOM_H - Y, 8);
+        const wireMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x111111 : 0x555555 });
+        const wire = new THREE.Mesh(wireGeo, wireMat);
+        wire.position.set(X, Y + (ROOM_H - Y)/2, Z);
+        scene.add(wire);
+        threeFixturesList.push(wire);
+
+        if (isLit) {
+          // 紙吊燈 360 度均勻散射
+          const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 2.8 : 3.2), 8);
+          pointLight.position.set(X, Y, Z);
+          scene.add(pointLight);
+          threeLightsList.push(pointLight);
+        }
+      });
+    }
+
+    // ── 玄關造型壁燈 ──
+    else if (c.type === 'sconce_left' && c.lights && c.lights.length > 0) {
+      c.lights.forEach(l => {
+        const X = -ROOM_W / 2 + 0.12;
+        const Z = (l.y - 0.5) * ROOM_D;
+        const Y = 1.62; 
+
+        const sconceGeo = new THREE.BoxGeometry(0.12, 0.32, 0.1);
+        const sconceMat = new THREE.MeshStandardMaterial({
+          color: isLit ? threeColor : (isDark ? 0x555555 : 0x999999),
+          roughness: 0.5
+        });
+        const sconceMesh = new THREE.Mesh(sconceGeo, sconceMat);
+        sconceMesh.position.set(X, Y, Z);
+        scene.add(sconceMesh);
+        threeFixturesList.push(sconceMesh);
+
+        if (isLit) {
+          const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 1.8 : 2.2), 4.5);
+          pointLight.position.set(X + 0.15, Y, Z);
+          scene.add(pointLight);
+          threeLightsList.push(pointLight);
+        }
+      });
+    }
   });
+}
+
+// ── 統整性渲染接口 ──
+function render() {
+  if (view === 'plan') {
+    drawPlan();
+  } else {
+    initThree();
+    syncThreeLights();
+    if (renderer) {
+      renderer.render(scene, camera);
+    }
+  }
+}
+
+// ── 燈具控制更新方法 ──
+function tog(id){
+  const c = circuits.find(item => item.id === id);
+  if (!c) return;
+  c.on = !c.on;
+  const s = document.getElementById('sw-'+id);
+  if(s) {
+    s.textContent = c.on ? 'ON' : 'OFF';
+    s.className = 'sw' + (c.on ? ' on' : '');
+  }
+  const card = document.getElementById('cd-'+id);
+  if(card) card.className = 'card' + (c.on ? ' on' : '');
+  render();
+}
+
+function updBrightness(id){
+  const c = circuits.find(item => item.id === id);
+  if (!c) return;
+  const v = +document.getElementById('b-'+id).value;
+  c.b = v;
+  document.getElementById('v-'+id).textContent = v + '%';
+  render();
+}
+
+function changeColorTemp(id, col){
+  const c = circuits.find(item => item.id === id);
+  if (!c) return;
+  c.col = col;
+  ['warm','neu','cool'].forEach(temp => {
+    const el = document.getElementById(`k-${id}-${temp}`);
+    if (el) el.className = 'k' + (temp === col ? ' on' : '');
+  });
+  render();
+}
+
+function sv(v){
+  view=v;
+  pc.style.display=v==='plan'?'block':'none';
+  sc2.style.display=v==='sim'?'block':'none';
+  document.getElementById('t1').className='tab'+(v==='plan'?' on':'');
+  document.getElementById('t2').className='tab'+(v==='sim'?' on':'');
+  
+  if (v === 'plan') {
+    document.getElementById('ht').textContent='雙擊名稱可重命名 · 拖曳燈具調整位置 · 雙擊燈具可刪除 · 野口勇吊燈可移動';
+  } else {
+    document.getElementById('ht').textContent='← 按住並拖曳滑鼠可 360° 旋轉視角 · 滾輪可縮放視角 →';
+  }
+  render();
+}
+
+// ── 情境切換 ──
+function preset(s){
+  circuits.forEach(c => {
+    let targetOn = false;
+    let targetB = 0;
+    
+    if (c.presetVal && c.presetVal[s]) {
+      [targetOn, targetB] = c.presetVal[s];
+    } else {
+      if (s === 'all') { targetOn = true; targetB = 70; }
+      else if (s === 'off') { targetOn = false; targetB = 0; }
+      else { targetOn = Math.random() > 0.4; targetB = targetOn ? 60 : 0; }
+    }
+
+    c.on = targetOn;
+    c.b = targetB;
+  });
+  buildSidebar();
+  render();
+}
+
+// ── 智慧畫面儲存/下載方法 ──
+function exportCanvas() {
+  const canvas = view === 'plan' ? pc : sc2;
+  
+  if (view === 'sim' && renderer && scene && camera) {
+    renderer.render(scene, camera);
+  }
+
+  const link = document.createElement('a');
+  link.download = view === 'plan' ? '木府_燈配置平面圖.jpg' : '木府_空間燈光3D模擬.jpg';
+  link.href = canvas.toDataURL('image/jpeg', 0.92);
+  
+  link.click();
+}
+
+// ── 滑鼠與觸控事件 (2D 平面圖 & 3D 空間拖曳) ──
+function getCoords(e) {
+  const rect = pc.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * (W / rect.width),
+    y: (clientY - rect.top) * (H / rect.height)
+  };
+}
+
+function dragStart(e) {
+  if(view === 'plan') {
+    if(e.touches && e.touches.length > 1) return;
+    const coords = getCoords(e);
+    const mx = coords.x, my = coords.y;
+    const R=roomBounds(), hitR=Math.max(5,R.rw*.023)*2;
+    
+    for (let c of circuits) {
+      if (!c.on || !c.lights) continue;
+      for (let i = 0; i < c.lights.length; i++) {
+        const lx = px(c.lights[i].x, R);
+        const ly = py(c.lights[i].y, R);
+        if (Math.hypot(mx - lx, my - ly) < hitR * 1.3) {
+          drag = { circId: c.id, index: i };
+          if (e.cancelable) e.preventDefault();
+          return;
+        }
+      }
+    }
+  } else {
+    isDragging3D = true;
+    prevMouseX = e.touches ? e.touches[0].clientX : e.clientX;
+    prevMouseY = e.touches ? e.touches[0].clientY : e.clientY;
+    if (e.cancelable) e.preventDefault();
+  }
+}
+
+function dragMove(e) {
+  if (view === 'plan') {
+    if(!drag) return;
+    const coords = getCoords(e);
+    const mx = coords.x, my = coords.y;
+    const R=roomBounds();
+    const nx=(mx-R.rx)/R.rw, ny=(my-R.ry)/R.rh;
+    
+    const c = circuits.find(item => item.id === drag.circId);
+    if (c && c.lights && c.lights[drag.index]) {
+      c.lights[drag.index].x = Math.max(0.02, Math.min(0.98, nx));
+      c.lights[drag.index].y = Math.max(0.02, Math.min(0.98, ny));
+      render();
+    }
+    if (e.cancelable) e.preventDefault();
+  } else {
+    if (!isDragging3D) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const dx = clientX - prevMouseX;
+    const dy = clientY - prevMouseY;
+    
+    theta -= dx * 0.007;
+    phi = Math.max(-0.6, Math.min(1.2, phi + dy * 0.007)); 
+    
+    prevMouseX = clientX;
+    prevMouseY = clientY;
+    
+    updateCameraPosition();
+    if (e.cancelable) e.preventDefault();
+  }
+}
+
+function dragEnd() {
+  drag=null;
+  isDragging3D = false;
+}
+
+// ── 事件綁定 ──
+pc.addEventListener('mousedown', dragStart);
+pc.addEventListener('mousemove', dragMove);
+pc.addEventListener('mouseup', dragEnd);
+pc.addEventListener('mouseleave', dragEnd);
+
+pc.addEventListener('touchstart', dragStart, {passive: false});
+pc.addEventListener('touchmove', dragMove, {passive: false});
+pc.addEventListener('touchend', dragEnd);
+pc.addEventListener('touchcancel', dragEnd);
+
+sc2.addEventListener('mousedown', dragStart);
+sc2.addEventListener('mousemove', dragMove);
+window.addEventListener('mouseup', dragEnd); 
+
+sc2.addEventListener('touchstart', dragStart, {passive: false});
+sc2.addEventListener('touchmove', dragMove, {passive: false});
+sc2.addEventListener('touchend', dragEnd);
+
+// 3D 空間滑鼠滾輪縮放
+sc2.addEventListener('wheel', e => {
+  if (view !== 'sim') return;
+  radius = Math.max(3, Math.min(15, radius + e.deltaY * 0.004));
+  updateCameraPosition();
+  e.preventDefault();
+}, { passive: false });
+
+// 雙擊平面圖燈具進行刪除
+pc.addEventListener('dblclick', e => {
+  if(view!=='plan') return;
+  const coords = getCoords(e);
+  const mx = coords.x, my = coords.y;
+  const R=roomBounds(), hitR=Math.max(5,R.rw*.023)*2;
+
+  for (let c of circuits) {
+    if (c.type === 'downlight' && c.lights) {
+      for (let i = 0; i < c.lights.length; i++) {
+        const lx = px(c.lights[i].x, R);
+        const ly = py(c.lights[i].y, R);
+        if (Math.hypot(mx - lx, my - ly) < hitR) {
+          c.lights.splice(i, 1);
+          buildSidebar();
+          render();
+          return;
+        }
+      }
+    }
+  }
 });
 
 window.addEventListener('resize',resize);
+buildSidebar();
 resize();
 </script>
 </body>
