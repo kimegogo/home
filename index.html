@@ -75,6 +75,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .sc{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .scb{padding:6px;font-size:10px;border-radius:5px;border:1px solid var(--bdr);background:none;color:var(--mu);cursor:pointer;transition:all .2s;text-align:center}
 .scb:hover{border-color:var(--acc);color:var(--acc2)}
+.scb.on{border-color:var(--acc);color:var(--acc2);background:rgba(192,152,64,.14)}
 
 /* 頁籤與匯出按鈕組合 */
 .rt{display:flex;flex-direction:column;overflow:hidden}
@@ -120,16 +121,23 @@ body.dark-theme .btn-cancel {background:rgba(255,255,255,0.05)}
 }
 </style>
 </head>
-<body>
+<body class="dark-theme"> <!-- 預設以帶有質感的深色呈現以利首次載入看清燈光效果，按鈕可隨時切換 -->
 <header>
   <div class="header-left">
     <h1>木府 · 燈具配置模擬器</h1>
     <span>260225 邱宅 — 客廳 / 餐廳</span>
   </div>
-  <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()">🌓 切換深色模式</button>
+  <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()">🌓 切換淺色主題</button>
 </header>
 <div class="main">
 <div class="sb">
+  <div class="sec">環境日光模擬 (物理時間)</div>
+  <div class="sc" style="margin-bottom: 5px;">
+    <button class="scb" id="env-day" onclick="setEnvTime('day')">☀️ 晴朗白天</button>
+    <button class="scb" id="env-dusk" onclick="setEnvTime('dusk')">🌇 溫馨黃昏</button>
+    <button class="scb on" id="env-night" onclick="setEnvTime('night')">🌙 漆黑夜晚</button>
+  </div>
+
   <div class="sec">崁燈 / 燈具迴路</div>
   
   <!-- 動態生成迴路卡片容器 -->
@@ -183,8 +191,9 @@ body.dark-theme .btn-cancel {background:rgba(255,255,255,0.05)}
 // ── 色溫設定 (RGB 轉換) ──
 const CT={warm:{r:255,g:198,b:98},warmLight:{r:255,g:215,b:130},neu:{r:255,g:236,b:188},cool:{r:212,g:228,b:255}};
 
-// ── 主題切換狀態變數 ──
-let isDark = false; // 預設為淺色主題
+// ── 主題切換與時間模擬變數 ──
+let isDark = true; // 預設深色主題
+let envTime = 'night'; // 模擬時間: 'day', 'dusk', 'night'
 
 // 核心資料結構：迴路列表 (高度動態化)
 let circuits=[
@@ -286,6 +295,7 @@ let W,H;
 
 // ── Three.js 3D 空間模擬狀態變數 ──
 let scene, camera, renderer, ambientLight;
+let sunLight, sunTarget; // 新增陽光系統
 let threeLightsList = [];
 let threeFixturesList = [];
 let staticMeshes = [];
@@ -296,12 +306,16 @@ let phi = 0.35;   // 垂直俯仰視角
 let radius = 11;  // 視角距離 (Zoom)
 const center = new THREE.Vector3(0, 1.1, 0); 
 
-// ── 雙主題動態配色 ──
+// ── 3D 空間實際尺寸對照 ──
+const ROOM_W = 5;
+const ROOM_H = 3;
+const ROOM_D = 8.6;
+
 function getThemeColors() {
   if (isDark) {
     return {
       bgPlan: '#0e0d09',
-      bgRoom: '#1f1d13',
+      bgRoom: '#191710',
       bgSim: 0x070604,
       wallBdr: 'rgba(215,185,115,.55)',
       itemText: 'rgba(195,175,125,.82)',
@@ -334,7 +348,7 @@ function getThemeColors() {
       labelColor: 'rgba(138,114,72,.7)',
       sconceFill: 'rgba(180,160,130,.5)',
       sconceLitFill: 'rgba(255,220,160,.85)',
-      ambientIntensity: 0.18
+      ambientIntensity: 0.15
     };
   }
 }
@@ -344,17 +358,14 @@ function toggleTheme() {
   const btn = document.getElementById('theme-toggle');
   if (isDark) {
     document.body.classList.add('dark-theme');
-    btn.textContent = '☀️ 切換淺色模式';
+    btn.textContent = '🌓 切換淺色主題';
   } else {
     document.body.classList.remove('dark-theme');
-    btn.textContent = '🌓 切換深色模式';
+    btn.textContent = '🌓 切換深色主題';
   }
   
   if (scene) {
     scene.background = new THREE.Color(getThemeColors().bgSim);
-    if (ambientLight) {
-      ambientLight.intensity = getThemeColors().ambientIntensity;
-    }
     // 重建 3D 家具硬裝以轉換材質色澤
     build3DObjects();
     syncThreeLights();
@@ -364,7 +375,19 @@ function toggleTheme() {
   render();
 }
 
-// ── 建立側邊欄迴路控制卡片 ──
+// ── 設置模擬日光時間 ──
+function setEnvTime(time) {
+  envTime = time;
+  ['day', 'dusk', 'night'].forEach(t => {
+    const el = document.getElementById(`env-${t}`);
+    if (el) {
+      if (t === time) el.classList.add('on');
+      else el.classList.remove('on');
+    }
+  });
+  render();
+}
+
 function buildSidebar() {
   const container = document.getElementById('circuits-container');
   let html = '';
@@ -376,9 +399,9 @@ function buildSidebar() {
     const deleteButton = c.isDefault ? '' : `<button class="del-btn" onclick="deleteCircuit('${c.id}')" title="刪除此迴路">✕</button>`;
 
     let controlsHTML = '';
+    const lightsLen = c.lights ? c.lights.length : 0;
 
     if (c.type === 'downlight') {
-      const lightsLen = c.lights ? c.lights.length : 0;
       controlsHTML = `
         <div class="cr">
           <button class="cb" onclick="chgDownlightCount('${c.id}', -1)">−</button>
@@ -459,7 +482,6 @@ function handleRenameKey(e, id) {
   }
 }
 
-// ── 增加與刪除自訂迴路 ──
 function toggleAddPanel(show) {
   const panel = document.getElementById('add-panel');
   const trigger = document.getElementById('add-trigger');
@@ -533,7 +555,8 @@ function deleteCircuit(id) {
 // ── 燈光數量增減控制 ──
 function chgDownlightCount(id, delta) {
   const c = circuits.find(item => item.id === id);
-  if (!c || !c.lights) return;
+  if (!c) return;
+  if (!c.lights) c.lights = [];
   
   if (delta < 0) {
     if (c.lights.length > 0) {
@@ -586,7 +609,6 @@ function roomBounds(){
 const px=(x,r)=>r.rx+x*r.rw;
 const py=(y,r)=>r.ry+y*r.rh;
 
-// ── 繪製平面配置圖 ──
 function drawPlan(){
   const ctx=pctx, R=roomBounds();
   const theme = getThemeColors();
@@ -607,6 +629,27 @@ function drawPlan(){
   ctx.strokeRect(px(.18,R),R.ry-1, R.rw*.55, 5);
   ctx.fillStyle='rgba(180,220,255,.1)';
   ctx.fillRect(px(.18,R),R.ry, R.rw*.55, Math.max(1, R.rh*.03));
+
+  // ── 物理日光流瀉繪製 (窗戶射入的光流) ──
+  if (envTime === 'day' || envTime === 'dusk') {
+    ctx.save();
+    const winX1 = px(.18, R), winX2 = px(.73, R);
+    const dyColor = envTime === 'day' ? 'rgba(255, 248, 215, 0.16)' : 'rgba(255, 140, 40, 0.13)';
+    ctx.fillStyle = dyColor;
+    ctx.beginPath();
+    ctx.moveTo(winX1, R.ry);
+    ctx.lineTo(winX2, R.ry);
+    if (envTime === 'day') {
+      ctx.lineTo(px(.92, R), py(.75, R));
+      ctx.lineTo(px(.08, R), py(.75, R));
+    } else { // 黃昏光線偏向一側
+      ctx.lineTo(px(.98, R), py(.92, R));
+      ctx.lineTo(px(.38, R), py(.92, R));
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
   // TV 牆 (左側)
   ctx.fillStyle='#2d2218';
@@ -786,11 +829,6 @@ function drawPlan(){
   ctx.restore();
 }
 
-// ── 3D 空間實際尺寸對照 ──
-const ROOM_W = 5;
-const ROOM_H = 3;
-const ROOM_D = 8.6;
-
 function initThree() {
   if (scene) return; 
 
@@ -812,11 +850,22 @@ function initThree() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // 4. 新增柔和環境光 (底光會隨著主題做對比強度調整)
+  // 4. 新增柔和環境光 (底光會隨著環境與主題做自適應強度調整)
   ambientLight = new THREE.AmbientLight(0xffffff, getThemeColors().ambientIntensity);
   scene.add(ambientLight);
 
-  // 5. 建立靜態家具模型
+  // 5. 建立物理陽光系統
+  sunLight = new THREE.DirectionalLight(0xfff8ee, 1.0);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
+  scene.add(sunLight);
+
+  sunTarget = new THREE.Object3D();
+  scene.add(sunTarget);
+  sunLight.target = sunTarget;
+
+  // 6. 建立靜態家具與結構
   build3DObjects();
 }
 
@@ -832,13 +881,11 @@ function updateCameraPosition() {
   }
 }
 
-// 建立與平面 2D 配置 100% 同步的 3D 家具模型與牆體
 function build3DObjects() {
   // 清空舊有的 3D 家具以防重疊
   staticMeshes.forEach(mesh => scene.remove(mesh));
   staticMeshes = [];
 
-  const themeColors = getThemeColors();
   const isDarkTheme = isDark;
 
   // 定義主題敏感的 3D 材質
@@ -886,7 +933,7 @@ function build3DObjects() {
   backWall.position.z = -ROOM_D / 2; backWall.position.y = ROOM_H / 2;
   scene.add(backWall); staticMeshes.push(backWall);
 
-  // 3. 2D-3D 精準大窗戶 (窗戶位於遠側)
+  // 3. 大面景觀窗
   const windowFrame = new THREE.Mesh(new THREE.BoxGeometry(2.75, 1.8, 0.05), matWindowFrame);
   windowFrame.position.set(-0.225, 1.5, -ROOM_D / 2 + 0.03);
   scene.add(windowFrame); staticMeshes.push(windowFrame);
@@ -930,7 +977,6 @@ function build3DObjects() {
   tableLeg.position.set(0, 0.375, 1.548);
   scene.add(tableLeg); staticMeshes.push(tableLeg);
 
-  // 與平面椅子角度 100% 完全相符的餐椅
   [{a:-0.55},{a:0.55},{a:Math.PI+0.2}].forEach(({a})=>{
     const cx = Math.cos(a) * 0.975;
     const cz = 1.548 + Math.sin(a) * 0.975;
@@ -961,24 +1007,45 @@ function build3DObjects() {
   scene.add(entrywayPartition); staticMeshes.push(entrywayPartition);
 }
 
-// 同步並建立 3D 光源，當迴路開關、亮度、色溫拖曳時即時重建
 function syncThreeLights() {
   if (!scene) return;
 
-  // 清理舊光源與發光幾何體
+  // ── 1. 室外物理時間日光配置 ──
+  if (envTime === 'day') {
+    ambientLight.color.setHex(0xd2e5ff); // 天空微偏藍的冷散射光
+    ambientLight.intensity = 0.52;
+    sunLight.visible = true;
+    sunLight.color.setHex(0xfff8ed); // 清晨偏暖白色日光
+    sunLight.intensity = 1.7;
+    sunLight.position.set(-1.2, 2.5, -ROOM_D / 2 - 1.5);
+    sunTarget.position.set(0.4, 0.4, -0.5);
+  } else if (envTime === 'dusk') {
+    ambientLight.color.setHex(0xffe2c5); // 夕陽黃昏色溫
+    ambientLight.intensity = 0.28;
+    sunLight.visible = true;
+    sunLight.color.setHex(0xffaa44); // 深暖金黃色調
+    sunLight.intensity = 1.1;
+    sunLight.position.set(-2.2, 1.3, -ROOM_D / 2 - 1.0);
+    sunTarget.position.set(0.8, 0.4, 0.8);
+  } else { // night (漆黑夜晚)
+    ambientLight.color.setHex(0xffffff);
+    ambientLight.intensity = getThemeColors().ambientIntensity;
+    sunLight.visible = false;
+  }
+
+  // 清理舊有人工光源
   threeLightsList.forEach(l => scene.remove(l));
   threeFixturesList.forEach(f => scene.remove(f));
   threeLightsList = [];
   threeFixturesList = [];
 
+  // ── 2. 人工照明光源同步 ──
   circuits.forEach(c => {
     const isLit = c.on && c.b > 0;
     const intensity = isLit ? (c.b / 100) * 1.6 : 0;
 
-    // 取得正確對應的色溫 (RGB)
     let rgb = CT.warm;
     if (c.col && CT[c.col]) {
-      // 淺色模式下使暖白光稍微明亮一些，加強光照感
       rgb = (!isDark && c.col === 'warm') ? CT.warmLight : CT[c.col];
     }
     const threeColor = new THREE.Color(rgb.r / 255, rgb.g / 255, rgb.b / 255);
@@ -990,7 +1057,6 @@ function syncThreeLights() {
         const Z = (l.y - 0.5) * ROOM_D;
         const Y = ROOM_H - 0.05;
 
-        // 實體發光嵌片
         const fixGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16);
         const fixMat = new THREE.MeshBasicMaterial({
           color: isLit ? threeColor : (isDark ? 0x333333 : 0xbbbbbb)
@@ -1001,7 +1067,6 @@ function syncThreeLights() {
         threeFixturesList.push(fixture);
 
         if (isLit) {
-          // 聚光燈 SpotLight (模擬崁燈的錐形切光)
           const spotLight = new THREE.SpotLight(threeColor, intensity * (isDark ? 2.8 : 3.2), 9, Math.PI / 4, 0.6, 1);
           spotLight.position.set(X, Y, Z);
 
@@ -1017,7 +1082,7 @@ function syncThreeLights() {
       });
     }
 
-    // ── 電視牆層板條燈 ──
+    // ── 電視牆層板條燈 (洗牆效果) ──
     else if (c.type === 'strip_left') {
       const X = -1.55;
       const Y = 0.45; 
@@ -1032,7 +1097,6 @@ function syncThreeLights() {
       threeFixturesList.push(stripMesh);
 
       if (isLit) {
-        // 洗牆光效
         [-3.2, -2.0, -0.8].forEach(zPos => {
           const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 1.2 : 1.5), 3.8);
           pointLight.position.set(X + 0.1, Y + 0.1, zPos);
@@ -1073,7 +1137,6 @@ function syncThreeLights() {
         const Z = (l.y - 0.5) * ROOM_D;
         const Y = 1.35; 
 
-        // 野口勇紙燈罩幾何體
         const lanGeo = new THREE.SphereGeometry(0.36, 32, 16);
         lanGeo.scale(1.2, 0.9, 1.2);
         const lanMat = new THREE.MeshBasicMaterial({
@@ -1084,7 +1147,6 @@ function syncThreeLights() {
         scene.add(lantern);
         threeFixturesList.push(lantern);
 
-        // 吊線
         const wireGeo = new THREE.CylinderGeometry(0.01, 0.01, ROOM_H - Y, 8);
         const wireMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x111111 : 0x555555 });
         const wire = new THREE.Mesh(wireGeo, wireMat);
@@ -1093,7 +1155,6 @@ function syncThreeLights() {
         threeFixturesList.push(wire);
 
         if (isLit) {
-          // 紙吊燈 360 度均勻散射
           const pointLight = new THREE.PointLight(threeColor, intensity * (isDark ? 2.8 : 3.2), 8);
           pointLight.position.set(X, Y, Z);
           scene.add(pointLight);
@@ -1143,7 +1204,6 @@ function render() {
   }
 }
 
-// ── 燈具控制更新方法 ──
 function tog(id){
   const c = circuits.find(item => item.id === id);
   if (!c) return;
@@ -1193,7 +1253,6 @@ function sv(v){
   render();
 }
 
-// ── 情境切換 ──
 function preset(s){
   circuits.forEach(c => {
     let targetOn = false;
@@ -1229,7 +1288,6 @@ function exportCanvas() {
   link.click();
 }
 
-// ── 滑鼠與觸控事件 (2D 平面圖 & 3D 空間拖曳) ──
 function getCoords(e) {
   const rect = pc.getBoundingClientRect();
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1306,7 +1364,7 @@ function dragEnd() {
   isDragging3D = false;
 }
 
-// ── 事件綁定 ──
+// ── 事件監聽 ──
 pc.addEventListener('mousedown', dragStart);
 pc.addEventListener('mousemove', dragMove);
 pc.addEventListener('mouseup', dragEnd);
