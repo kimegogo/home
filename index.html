@@ -4,1178 +4,786 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>木府 燈具配置模擬器</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #1a1612;
-    --panel: #231f1b;
-    --panel2: #2e2820;
-    --border: rgba(255,220,160,0.15);
-    --accent: #d4a660;
-    --accent2: #e8c47a;
-    --text: #f0e8d8;
-    --muted: #a09070;
-    --warm-glow: rgba(255, 210, 130, 1);
-    --cool-light: rgba(220, 235, 255, 1);
-    --led-strip: rgba(255, 200, 80, 1);
-  }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Noto Sans TC', 'Helvetica Neue', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  header h1 {
-    font-size: 17px;
-    font-weight: 500;
-    color: var(--accent2);
-    letter-spacing: 0.08em;
-  }
-  header span {
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-  }
-  .main {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    flex: 1;
-    overflow: hidden;
-    height: calc(100vh - 53px);
-  }
-  .sidebar {
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .sidebar::-webkit-scrollbar { width: 4px; }
-  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .section-label {
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: var(--muted);
-    text-transform: uppercase;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-    margin-top: 4px;
-  }
-  .circuit-card {
-    background: var(--panel2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  .circuit-card:hover { border-color: var(--accent); }
-  .circuit-card.active { border-color: var(--accent2); }
-  .circuit-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-  .circuit-name {
-    font-size: 13px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .circuit-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-  }
-  .toggle-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 3px 12px;
-    font-size: 11px;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .toggle-btn.on {
-    border-color: var(--accent);
-    color: var(--accent2);
-    background: rgba(212,166,96,0.1);
-  }
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-  }
-  .slider-label {
-    font-size: 11px;
-    color: var(--muted);
-    min-width: 40px;
-  }
-  input[type=range] {
-    -webkit-appearance: none;
-    flex: 1;
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    outline: none;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-  }
-  .slider-val {
-    font-size: 11px;
-    color: var(--accent2);
-    min-width: 32px;
-    text-align: right;
-  }
-  .count-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-  }
-  .count-btn {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--muted);
-    cursor: pointer;
-    font-size: 14px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-  }
-  .count-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .count-display {
-    font-size: 13px;
-    color: var(--text);
-    min-width: 20px;
-    text-align: center;
-  }
-  .count-label {
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .color-toggle {
-    display: flex;
-    gap: 4px;
-    margin-top: 6px;
-  }
-  .color-btn {
-    padding: 3px 8px;
-    font-size: 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .color-btn.active { background: rgba(212,166,96,0.2); border-color: var(--accent); color: var(--accent2); }
-  .canvas-area {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .view-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    padding: 0 20px;
-    background: var(--panel);
-  }
-  .view-tab {
-    padding: 10px 18px;
-    font-size: 12px;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    letter-spacing: 0.04em;
-  }
-  .view-tab.active {
-    color: var(--accent2);
-    border-bottom-color: var(--accent2);
-  }
-  .view-content {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-  }
-  canvas {
-    position: absolute;
-    top: 0; left: 0;
-  }
-  .hint {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 11px;
-    color: var(--muted);
-    background: rgba(26,22,18,0.8);
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    pointer-events: none;
-    white-space: nowrap;
-  }
-  .circuit-switch-indicator {
-    font-size: 10px;
-    color: var(--muted);
-    margin-top: 4px;
-  }
-</style>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#111009;--panel:#1c1a14;--panel2:#252118;
+  --border:rgba(220,190,120,0.13);--accent:#c8a050;--accent2:#e0c070;
+  --text:#ede0c4;--muted:#907850;
+}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-shrink:0}
+header h1{font-size:15px;font-weight:500;color:var(--accent2);letter-spacing:.1em}
+header span{font-size:11px;color:var(--muted)}
+.main{display:grid;grid-template-columns:290px 1fr;flex:1;overflow:hidden;min-height:0}
+.sidebar{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sec{font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border)}
+.card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;transition:border-color .2s}
+.card.on{border-color:rgba(200,160,80,.35)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cn{font-size:12px;font-weight:500;display:flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sw{background:none;border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:10px;color:var(--muted);cursor:pointer;transition:all .2s}
+.sw.on{border-color:var(--accent);color:var(--accent2);background:rgba(200,160,80,.1)}
+.sub{font-size:10px;color:var(--muted);margin-bottom:6px}
+.sr{display:flex;align-items:center;gap:6px;margin-top:5px}
+.sl{font-size:10px;color:var(--muted);min-width:36px}
+input[type=range]{-webkit-appearance:none;flex:1;height:3px;background:rgba(200,160,80,.2);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer}
+.sv{font-size:10px;color:var(--accent2);min-width:30px;text-align:right}
+.cr{display:flex;align-items:center;gap:6px;margin-top:5px}
+.cb{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.cb:hover{border-color:var(--accent);color:var(--accent)}
+.cd{font-size:12px;color:var(--text);min-width:18px;text-align:center}
+.cl{font-size:10px;color:var(--muted)}
+.kbtns{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+.kb{padding:3px 7px;font-size:9px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .2s}
+.kb.on{background:rgba(200,160,80,.15);border-color:var(--accent);color:var(--accent2)}
+.scenes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.scbtn{padding:7px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .2s;text-align:center}
+.scbtn:hover{border-color:var(--accent);color:var(--accent2)}
+.right{display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);padding:0 16px;flex-shrink:0}
+.tab{padding:9px 16px;font-size:11px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.04em}
+.tab.on{color:var(--accent2);border-bottom-color:var(--accent2)}
+.cv{flex:1;position:relative;overflow:hidden}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+.hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);background:rgba(17,16,9,.85);padding:3px 12px;border-radius:20px;border:1px solid var(--border);pointer-events:none;white-space:nowrap}
+</style>
 </head>
 <body>
 <header>
-  <h1>木府 · 燈具配置模擬器</h1>
-  <span>260225 邱宅 平面配置圖</span>
+  <h1>木府 · 客廳燈具配置模擬器</h1>
+  <span>260225 邱宅</span>
 </header>
 <div class="main">
-  <div class="sidebar">
-    <div class="section-label">燈具迴路控制</div>
+<div class="sidebar">
+  <div class="sec">燈具迴路控制</div>
 
-    <!-- Circuit A: Living room main recessed -->
-    <div class="circuit-card active" id="card-A">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#e8b860"></div>
-          迴路 A · 客廳主燈
-        </div>
-        <button class="toggle-btn on" id="toggle-A" onclick="toggleCircuit('A')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">3路開關 S₃ · 三組</div>
-      <div class="count-row">
-        <button class="count-btn" onclick="changeCount('A',-1)">−</button>
-        <span class="count-display" id="count-A">6</span>
-        <span class="count-label">顆 9cm 崁燈</span>
-        <button class="count-btn" onclick="changeCount('A',1)">+</button>
-      </div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="80" id="bright-A" oninput="updateBrightness('A')">
-        <span class="slider-val" id="bval-A">80%</span>
-      </div>
-      <div class="color-toggle">
-        <button class="color-btn active" id="cA-warm" onclick="setColor('A','warm')">暖白 3000K</button>
-        <button class="color-btn" id="cA-neutral" onclick="setColor('A','neutral')">中性 4000K</button>
-        <button class="color-btn" id="cA-cool" onclick="setColor('A','cool')">冷白 6000K</button>
-      </div>
+  <!-- 迴路1: 上方大迴路 頂排2顆+右1顆 共3顆, S₃右側 -->
+  <div class="card on" id="card1">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#e8c060"></div>迴路① · 上區崁燈</div>
+      <button class="sw on" id="sw1" onclick="tog(1)">ON</button>
     </div>
-
-    <!-- Circuit B: Entry/dining recessed -->
-    <div class="circuit-card" id="card-B">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#c87830"></div>
-          迴路 B · 玄關/餐廳
-        </div>
-        <button class="toggle-btn on" id="toggle-B" onclick="toggleCircuit('B')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">單切開關 S · 兩組</div>
-      <div class="count-row">
-        <button class="count-btn" onclick="changeCount('B',-1)">−</button>
-        <span class="count-display" id="count-B">4</span>
-        <span class="count-label">顆 9cm 崁燈</span>
-        <button class="count-btn" onclick="changeCount('B',1)">+</button>
-      </div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="70" id="bright-B" oninput="updateBrightness('B')">
-        <span class="slider-val" id="bval-B">70%</span>
-      </div>
-      <div class="color-toggle">
-        <button class="color-btn active" id="cB-warm" onclick="setColor('B','warm')">暖白 3000K</button>
-        <button class="color-btn" id="cB-neutral" onclick="setColor('B','neutral')">中性 4000K</button>
-        <button class="color-btn" id="cB-cool" onclick="setColor('B','cool')">冷白 6000K</button>
-      </div>
+    <div class="sub">S₃ 三路 · 頂排2顆 + 右側1顆</div>
+    <div class="cr">
+      <button class="cb" onclick="chg(1,-1)">−</button>
+      <span class="cd" id="cnt1">3</span>
+      <span class="cl">顆 9cm 崁燈</span>
+      <button class="cb" onclick="chg(1,1)">+</button>
     </div>
-
-    <!-- Circuit C: LED strip TV cabinet -->
-    <div class="circuit-card" id="card-C">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#f0a020"></div>
-          迴路 C · 電視牆層板燈
-        </div>
-        <button class="toggle-btn on" id="toggle-C" onclick="toggleCircuit('C')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">層板燈 · LED 條燈</div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="60" id="bright-C" oninput="updateBrightness('C')">
-        <span class="slider-val" id="bval-C">60%</span>
-      </div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="80" id="br1" oninput="upd(1)">
+      <span class="sv" id="bv1">80%</span>
     </div>
-
-    <!-- Circuit D: Left wall LED strip (鋁條燈) -->
-    <div class="circuit-card" id="card-D">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#d4d890"></div>
-          迴路 D · 壁面鋁條燈
-        </div>
-        <button class="toggle-btn on" id="toggle-D" onclick="toggleCircuit('D')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">鋁條燈 · 間接照明</div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="50" id="bright-D" oninput="updateBrightness('D')">
-        <span class="slider-val" id="bval-D">50%</span>
-      </div>
-    </div>
-
-    <!-- Circuit E: Noguchi pendant -->
-    <div class="circuit-card" id="card-E">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#e8d0a0"></div>
-          野口勇 Akari 45A 吊燈
-        </div>
-        <button class="toggle-btn on" id="toggle-E" onclick="toggleCircuit('E')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">吊燈 · 餐廳主燈</div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="75" id="bright-E" oninput="updateBrightness('E')">
-        <span class="slider-val" id="bval-E">75%</span>
-      </div>
-    </div>
-
-    <!-- Circuit F: Entry wall sconce -->
-    <div class="circuit-card" id="card-F">
-      <div class="circuit-header">
-        <div class="circuit-name">
-          <div class="circuit-dot" style="background:#b08060"></div>
-          迴路 F · 門口壁燈
-        </div>
-        <button class="toggle-btn on" id="toggle-F" onclick="toggleCircuit('F')">ON</button>
-      </div>
-      <div class="circuit-switch-indicator">壁燈 · 玄關氛圍燈</div>
-      <div class="slider-row">
-        <span class="slider-label">亮度</span>
-        <input type="range" min="0" max="100" value="60" id="bright-F" oninput="updateBrightness('F')">
-        <span class="slider-val" id="bval-F">60%</span>
-      </div>
-    </div>
-
-    <!-- Preset scenes -->
-    <div class="section-label" style="margin-top:8px">情境預設</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="color-btn" style="padding:8px;font-size:11px" onclick="setScene('full')">✦ 全開</button>
-      <button class="color-btn" style="padding:8px;font-size:11px" onclick="setScene('relax')">◎ 休閒</button>
-      <button class="color-btn" style="padding:8px;font-size:11px" onclick="setScene('dim')">◑ 夜燈</button>
-      <button class="color-btn" style="padding:8px;font-size:11px" onclick="setScene('off')">○ 全關</button>
+    <div class="kbtns">
+      <button class="kb on" id="k1w" onclick="kc(1,'warm')">暖白 3000K</button>
+      <button class="kb" id="k1n" onclick="kc(1,'neu')">中性 4000K</button>
+      <button class="kb" id="k1c" onclick="kc(1,'cool')">冷白 6000K</button>
     </div>
   </div>
 
-  <div class="canvas-area">
-    <div class="view-tabs">
-      <div class="view-tab active" id="tab-plan" onclick="switchView('plan')">平面配置圖</div>
-      <div class="view-tab" id="tab-sim" onclick="switchView('sim')">客廳燈光模擬</div>
+  <!-- 迴路2: 中間迴路 左2顆+右1顆 共3顆 -->
+  <div class="card on" id="card2">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#d4a840"></div>迴路② · 中區崁燈</div>
+      <button class="sw on" id="sw2" onclick="tog(2)">ON</button>
     </div>
-    <div class="view-content">
-      <canvas id="planCanvas"></canvas>
-      <canvas id="simCanvas" style="display:none"></canvas>
-      <div class="hint" id="hint-text">拖曳崁燈可移動位置 · 雙擊刪除</div>
+    <div class="sub">S₃ 三路 · 左側2顆 + 右側1顆</div>
+    <div class="cr">
+      <button class="cb" onclick="chg(2,-1)">−</button>
+      <span class="cd" id="cnt2">3</span>
+      <span class="cl">顆 9cm 崁燈</span>
+      <button class="cb" onclick="chg(2,1)">+</button>
     </div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="80" id="br2" oninput="upd(2)">
+      <span class="sv" id="bv2">80%</span>
+    </div>
+    <div class="kbtns">
+      <button class="kb on" id="k2w" onclick="kc(2,'warm')">暖白 3000K</button>
+      <button class="kb" id="k2n" onclick="kc(2,'neu')">中性 4000K</button>
+      <button class="kb" id="k2c" onclick="kc(2,'cool')">冷白 6000K</button>
+    </div>
+  </div>
+
+  <!-- 迴路3: 下方大迴路 左2+中1+右1+底2 共6顆, 左側S₃ -->
+  <div class="card on" id="card3">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#b8902a"></div>迴路③ · 下區崁燈</div>
+      <button class="sw on" id="sw3" onclick="tog(3)">ON</button>
+    </div>
+    <div class="sub">S₃ 三路(左側3組) · 下半區</div>
+    <div class="cr">
+      <button class="cb" onclick="chg(3,-1)">−</button>
+      <span class="cd" id="cnt3">6</span>
+      <span class="cl">顆 9cm 崁燈</span>
+      <button class="cb" onclick="chg(3,1)">+</button>
+    </div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="80" id="br3" oninput="upd(3)">
+      <span class="sv" id="bv3">80%</span>
+    </div>
+    <div class="kbtns">
+      <button class="kb on" id="k3w" onclick="kc(3,'warm')">暖白 3000K</button>
+      <button class="kb" id="k3n" onclick="kc(3,'neu')">中性 4000K</button>
+      <button class="kb" id="k3c" onclick="kc(3,'cool')">冷白 6000K</button>
+    </div>
+  </div>
+
+  <!-- 左牆層板燈 (橘色鋁條燈) -->
+  <div class="card on" id="card4">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#e07030"></div>左牆層板燈</div>
+      <button class="sw on" id="sw4" onclick="tog(4)">ON</button>
+    </div>
+    <div class="sub">橘色鋁條燈 · 間接照明</div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="60" id="br4" oninput="upd(4)">
+      <span class="sv" id="bv4">60%</span>
+    </div>
+  </div>
+
+  <!-- 底部層板燈 S單切 -->
+  <div class="card on" id="card5">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#e06020"></div>底部層板燈</div>
+      <button class="sw on" id="sw5" onclick="tog(5)">ON</button>
+    </div>
+    <div class="sub">S 單切 · 底牆橘色條燈</div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="55" id="br5" oninput="upd(5)">
+      <span class="sv" id="bv5">55%</span>
+    </div>
+  </div>
+
+  <!-- 野口勇 Akari 45A -->
+  <div class="card on" id="card6">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#f0e0a0"></div>野口勇 Akari 45A</div>
+      <button class="sw on" id="sw6" onclick="tog(6)">ON</button>
+    </div>
+    <div class="sub">吊燈 · 餐廳中央</div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="75" id="br6" oninput="upd(6)">
+      <span class="sv" id="bv6">75%</span>
+    </div>
+  </div>
+
+  <!-- 門口壁燈 -->
+  <div class="card on" id="card7">
+    <div class="ch">
+      <div class="cn"><div class="dot" style="background:#c09060"></div>門口壁燈</div>
+      <button class="sw on" id="sw7" onclick="tog(7)">ON</button>
+    </div>
+    <div class="sub">壁燈 · 玄關入口</div>
+    <div class="sr">
+      <span class="sl">亮度</span>
+      <input type="range" min="0" max="100" value="60" id="br7" oninput="upd(7)">
+      <span class="sv" id="bv7">60%</span>
+    </div>
+  </div>
+
+  <div class="sec">情境預設</div>
+  <div class="scenes">
+    <button class="scbtn" onclick="scene('all')">✦ 全開</button>
+    <button class="scbtn" onclick="scene('relax')">◎ 休閒</button>
+    <button class="scbtn" onclick="scene('dim')">◑ 夜燈</button>
+    <button class="scbtn" onclick="scene('off')">○ 全關</button>
   </div>
 </div>
 
+<div class="right">
+  <div class="tabs">
+    <div class="tab on" id="t1" onclick="sv('plan')">平面配置圖</div>
+    <div class="tab" id="t2" onclick="sv('sim')">客廳燈光模擬</div>
+  </div>
+  <div class="cv">
+    <canvas id="pc"></canvas>
+    <canvas id="sc" style="display:none"></canvas>
+    <div class="hint" id="ht">拖曳崁燈可調整位置 · 雙擊刪除</div>
+  </div>
+</div>
+</div>
+
 <script>
-const state = {
-  circuits: {
-    A: { on: true, brightness: 80, color: 'warm', count: 6 },
-    B: { on: true, brightness: 70, color: 'warm', count: 4 },
-    C: { on: true, brightness: 60, color: 'warm', count: 1 },
-    D: { on: true, brightness: 50, color: 'warm', count: 1 },
-    E: { on: true, brightness: 75, color: 'warm', count: 1 },
-    F: { on: true, brightness: 60, color: 'warm', count: 1 },
-  },
-  view: 'plan',
-  dragging: null,
-  dragOffX: 0, dragOffY: 0,
+// ── State ──────────────────────────────────────────────────────────
+const CT = {
+  warm:  {r:255,g:195,b:95},
+  neu:   {r:255,g:235,b:185},
+  cool:  {r:210,g:228,b:255}
 };
 
-const colorTemp = {
-  warm: { r: 255, g: 190, b: 90 },
-  neutral: { r: 255, g: 230, b: 180 },
-  cool: { r: 210, g: 230, b: 255 },
+// Circuits: id, on, bright, color, count, maxCount
+const C = {
+  1:{on:true,b:80,col:'warm',cnt:3,max:6},
+  2:{on:true,b:80,col:'warm',cnt:3,max:6},
+  3:{on:true,b:80,col:'warm',cnt:6,max:9},
+  4:{on:true,b:60},  // left strip
+  5:{on:true,b:55},  // bottom strip
+  6:{on:true,b:75},  // Noguchi
+  7:{on:true,b:60},  // sconce
 };
 
-// Plan layout coordinates (relative to canvas, will be scaled)
-// Room layout: main living area roughly 600x450 in a ~800px wide canvas
-let planLights = {
-  A: [
-    { x: 0.38, y: 0.32 }, { x: 0.52, y: 0.32 },
-    { x: 0.38, y: 0.50 }, { x: 0.52, y: 0.50 },
-    { x: 0.38, y: 0.68 }, { x: 0.52, y: 0.68 },
-  ],
-  B: [
-    { x: 0.22, y: 0.32 }, { x: 0.22, y: 0.50 },
-    { x: 0.72, y: 0.58 }, { x: 0.84, y: 0.58 },
-  ],
-  E: [{ x: 0.44, y: 0.80 }],
-};
+// Light positions in floor plan (normalized 0-1 within drawing area)
+// Based on actual floor plan: tall portrait room
+// Circuit 1 (top zone): top-left2 + top-right1
+let L1 = [{x:.28,y:.09},{x:.52,y:.09},{x:.72,y:.20}];
+// Circuit 2 (mid zone): mid-left2 + mid-right1
+let L2 = [{x:.25,y:.38},{x:.50,y:.38},{x:.63,y:.42}];
+// Circuit 3 (lower zone): left2+center1+right1+bottom2
+let L3 = [{x:.25,y:.60},{x:.50,y:.60},{x:.72,y:.60},{x:.28,y:.76},{x:.52,y:.76},{x:.72,y:.76}];
+// Noguchi position
+let LN = {x:.45,y:.68};
 
-let currentView = 'plan';
-let planW, planH, simW, simH;
-const planCanvas = document.getElementById('planCanvas');
-const simCanvas = document.getElementById('simCanvas');
-const planCtx = planCanvas.getContext('2d');
-const simCtx = simCanvas.getContext('2d');
+let view='plan', drag=null;
+const pc=document.getElementById('pc'), sc=document.getElementById('sc');
+const pctx=pc.getContext('2d'), sctx=sc.getContext('2d');
+let W,H;
 
-function resize() {
-  const area = document.querySelector('.view-content');
-  const w = area.clientWidth;
-  const h = area.clientHeight;
-  planCanvas.width = w; planCanvas.height = h;
-  simCanvas.width = w; simCanvas.height = h;
-  planW = w; planH = h; simW = w; simH = h;
+function resize(){
+  const el=document.querySelector('.cv');
+  W=el.clientWidth; H=el.clientHeight;
+  pc.width=W; pc.height=H;
+  sc.width=W; sc.height=H;
   render();
 }
 
-function getColor(circuit, alpha) {
-  const c = state.circuits[circuit];
-  const t = colorTemp[c.color || 'warm'];
-  const b = (c.on ? c.brightness : 0) / 100;
-  return `rgba(${t.r},${t.g},${t.b},${alpha * b})`;
-}
+// ── Plan drawing ───────────────────────────────────────────────────
+function drawPlan(){
+  const ctx=pctx;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#100f08'; ctx.fillRect(0,0,W,H);
 
-function getLightColor(circuit) {
-  const c = state.circuits[circuit];
-  if (!c.on) return null;
-  return colorTemp[c.color || 'warm'];
-}
-
-function drawPlan() {
-  const ctx = planCtx;
-  const W = planW, H = planH;
-  ctx.clearRect(0, 0, W, H);
-
-  // Background
-  ctx.fillStyle = '#1e1a15';
-  ctx.fillRect(0, 0, W, H);
-
-  const S = Math.min(W, H);
-  const ox = (W - S * 0.92) / 2;
-  const oy = (H - S * 0.85) / 2;
-  const sw = S * 0.92, sh = S * 0.85;
-
-  // Draw simplified floor plan
-  ctx.strokeStyle = 'rgba(200,180,140,0.5)';
-  ctx.lineWidth = 2;
-
-  // Outer walls - main L-shaped unit
-  // Main living + bedroom block
-  ctx.beginPath();
-  // Main living room (left big block)
-  const rx = ox, ry = oy;
-  const rw = sw * 0.62, rh = sh * 0.72;
-  ctx.strokeRect(rx + sw*0.05, ry + sh*0.05, rw, rh);
-  // Bedroom (upper right)
-  ctx.strokeRect(rx + sw*0.62, ry + sh*0.05, sw*0.33, sh*0.48);
-  // Lower right (bathroom + room)
-  ctx.strokeRect(rx + sw*0.47, ry + sh*0.62, sw*0.48, sh*0.32);
-  ctx.stroke();
+  // Layout: portrait room centered
+  // Room is tall – use most of canvas height
+  const pad=20;
+  const rw=Math.min(W-pad*2, (H-pad*2)*0.58); // maintain aspect ~1:1.72
+  const rh=rw/0.58;
+  const rx=(W-rw)/2, ry=(H-Math.min(rh,H-pad*2))/2;
+  const ah=Math.min(rh,H-pad*2);
+  // scale helpers
+  const px=x=>rx+x*rw, py=y=>ry+y*ah;
 
   // Room fill
-  ctx.fillStyle = 'rgba(40,34,26,0.9)';
-  ctx.fillRect(rx + sw*0.05+1, ry + sh*0.05+1, rw-2, rh-2);
-  ctx.fillRect(rx + sw*0.62+1, ry + sh*0.05+1, sw*0.33-2, sh*0.48-2);
-  ctx.fillRect(rx + sw*0.47+1, ry + sh*0.62+1, sw*0.48-2, sh*0.32-2);
+  ctx.fillStyle='#1e1c14'; ctx.fillRect(rx,ry,rw,ah);
+  // Outer wall
+  ctx.strokeStyle='rgba(210,185,130,.55)'; ctx.lineWidth=2.5;
+  ctx.strokeRect(rx,ry,rw,ah);
 
-  // Room labels
-  ctx.fillStyle = 'rgba(160,140,100,0.4)';
-  ctx.font = `${Math.max(10, S*0.016)}px Noto Sans TC, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('客廳', rx + sw*0.05 + rw*0.5, ry + sh*0.05 + rh*0.35);
-  ctx.fillText('主臥', rx + sw*0.62 + sw*0.165, ry + sh*0.05 + sh*0.24);
-  ctx.fillText('次臥/廁所', rx + sw*0.71, ry + sh*0.62 + sh*0.16);
+  // Inner wall lines (simplified features)
+  ctx.strokeStyle='rgba(180,160,100,.2)'; ctx.lineWidth=1;
+  // Left side cabinet/wardrobe area (top-left)
+  ctx.strokeRect(rx, ry, rw*0.18, ah*0.28);
+  // Bottom-left (entry/storage)
+  ctx.strokeRect(rx, ry+ah*0.88, rw*0.28, ah*0.12);
 
-  // TV wall indicator
-  ctx.fillStyle = 'rgba(212,166,96,0.15)';
-  ctx.fillRect(rx + sw*0.28, ry + sh*0.05 + 2, sw*0.25, sh*0.04);
-  ctx.fillStyle = 'rgba(212,166,96,0.5)';
-  ctx.font = `${Math.max(9, S*0.013)}px Noto Sans TC`;
-  ctx.fillText('電視牆', rx + sw*0.405, ry + sh*0.05 + sh*0.03);
-
-  // Draw LED strips
-  // D: Left wall strip
-  if (state.circuits.D.on && state.circuits.D.brightness > 0) {
-    const b = state.circuits.D.brightness / 100;
-    const grad = ctx.createLinearGradient(rx + sw*0.07, 0, rx + sw*0.12, 0);
-    grad.addColorStop(0, `rgba(255,220,100,${b*0.6})`);
-    grad.addColorStop(1, `rgba(255,220,100,0)`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(rx + sw*0.05, ry + sh*0.12, sw*0.05, sh*0.55);
-    ctx.strokeStyle = `rgba(255,200,60,${b*0.8})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(rx + sw*0.06, ry + sh*0.12);
-    ctx.lineTo(rx + sw*0.06, ry + sh*0.67);
-    ctx.stroke();
-  }
-  // C: TV cabinet strip
-  if (state.circuits.C.on && state.circuits.C.brightness > 0) {
-    const b = state.circuits.C.brightness / 100;
-    const tvX = rx + sw*0.28, tvY = ry + sh*0.07;
-    const grad2 = ctx.createLinearGradient(0, tvY, 0, tvY + sh*0.05);
-    grad2.addColorStop(0, `rgba(255,210,80,${b*0.7})`);
-    grad2.addColorStop(1, `rgba(255,210,80,0)`);
-    ctx.fillStyle = grad2;
-    ctx.fillRect(tvX, tvY, sw*0.25, sh*0.06);
-    ctx.strokeStyle = `rgba(255,190,50,${b*0.9})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(tvX, tvY + 4);
-    ctx.lineTo(tvX + sw*0.25, tvY + 4);
-    ctx.stroke();
+  // Left wall orange strip (Circuit 4)
+  if(C[4].on && C[4].b>0){
+    const b=C[4].b/100;
+    const grd=ctx.createLinearGradient(rx,0,rx+rw*0.12,0);
+    grd.addColorStop(0,`rgba(255,160,40,${b*.7})`);
+    grd.addColorStop(1,'rgba(255,120,20,0)');
+    ctx.fillStyle=grd;
+    ctx.fillRect(rx,ry+ah*.05,rw*.12,ah*.52);
+    ctx.strokeStyle=`rgba(255,140,30,${b*.9})`; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(rx+3,ry+ah*.05); ctx.lineTo(rx+3,ry+ah*.57); ctx.stroke();
   }
 
-  // Draw recessed lights with glow
-  const drawRecessed = (lx, ly, circuit, label) => {
-    const c = state.circuits[circuit];
-    const b = c.on ? c.brightness / 100 : 0;
-    const t = colorTemp[c.color || 'warm'];
-    const r = Math.max(6, S * 0.012);
+  // Bottom strip (Circuit 5)
+  if(C[5].on && C[5].b>0){
+    const b=C[5].b/100;
+    const grd2=ctx.createLinearGradient(0,ry+ah*.95,0,ry+ah);
+    grd2.addColorStop(0,'rgba(255,140,30,0)');
+    grd2.addColorStop(1,`rgba(255,140,30,${b*.7})`);
+    ctx.fillStyle=grd2;
+    ctx.fillRect(rx+rw*.25,ry+ah*.92,rw*.45,ah*.08);
+    ctx.strokeStyle=`rgba(255,130,25,${b*.9})`; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(rx+rw*.25,ry+ah*.97); ctx.lineTo(rx+rw*.70,ry+ah*.97); ctx.stroke();
+  }
 
-    if (b > 0) {
-      const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 5);
-      glow.addColorStop(0, `rgba(${t.r},${t.g},${t.b},${b * 0.35})`);
-      glow.addColorStop(1, `rgba(${t.r},${t.g},${t.b},0)`);
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(lx, ly, r * 5, 0, Math.PI * 2);
-      ctx.fill();
+  // Draw circuit wire paths (decorative, matching actual plan curves)
+  drawWires(ctx,rx,ry,rw,ah);
+
+  // Draw recessed lights
+  const drawR=(lx,ly,cid)=>{
+    const c=C[cid]; const b=c.on?c.b/100:0;
+    const t=CT[c.col||'warm']; const rad=Math.max(5,rw*.024);
+    if(b>0){
+      const gl=ctx.createRadialGradient(lx,ly,0,lx,ly,rad*5.5);
+      gl.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.38})`);
+      gl.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(lx,ly,rad*5.5,0,Math.PI*2); ctx.fill();
     }
-
-    ctx.beginPath();
-    ctx.arc(lx, ly, r, 0, Math.PI * 2);
-    ctx.fillStyle = b > 0 ? `rgba(${t.r},${t.g},${t.b},${0.4 + b * 0.6})` : 'rgba(60,50,40,0.8)';
+    ctx.beginPath(); ctx.arc(lx,ly,rad,0,Math.PI*2);
+    ctx.fillStyle=b>0?`rgba(${t.r},${t.g},${t.b},${.35+b*.6})`:'rgba(55,48,32,.9)';
     ctx.fill();
-    ctx.strokeStyle = b > 0 ? `rgba(${t.r},${t.g},${t.b},0.8)` : 'rgba(120,100,70,0.4)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Inner ring
-    ctx.beginPath();
-    ctx.arc(lx, ly, r * 0.5, 0, Math.PI * 2);
-    ctx.strokeStyle = b > 0 ? `rgba(255,255,255,${b * 0.5})` : 'rgba(80,60,40,0.5)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
+    ctx.strokeStyle=b>0?`rgba(${t.r},${t.g},${t.b},.8)`:'rgba(100,85,50,.4)';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(lx,ly,rad*.45,0,Math.PI*2);
+    ctx.strokeStyle=b>0?`rgba(255,255,255,${b*.5})`:'rgba(70,55,30,.4)'; ctx.lineWidth=.5; ctx.stroke();
   };
 
-  // Circuit A lights
-  const alights = planLights.A.slice(0, state.circuits.A.count);
-  alights.forEach(l => {
-    drawRecessed(rx + l.x * sw, ry + l.y * sh, 'A');
-  });
+  L1.slice(0,C[1].cnt).forEach(l=>drawR(px(l.x),py(l.y),1));
+  L2.slice(0,C[2].cnt).forEach(l=>drawR(px(l.x),py(l.y),2));
+  L3.slice(0,C[3].cnt).forEach(l=>drawR(px(l.x),py(l.y),3));
 
-  // Circuit B lights
-  const blights = planLights.B.slice(0, state.circuits.B.count);
-  blights.forEach(l => {
-    drawRecessed(rx + l.x * sw, ry + l.y * sh, 'B');
-  });
-
-  // Noguchi pendant (E)
+  // Noguchi pendant
   {
-    const lx = rx + planLights.E[0].x * sw;
-    const ly = ry + planLights.E[0].y * sh;
-    const c = state.circuits.E;
-    const b = c.on ? c.brightness / 100 : 0;
-    if (b > 0) {
-      const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, S * 0.06);
-      glow.addColorStop(0, `rgba(255,230,160,${b * 0.4})`);
-      glow.addColorStop(1, `rgba(255,200,80,0)`);
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(lx, ly, S * 0.06, 0, Math.PI * 2);
-      ctx.fill();
+    const lx=px(LN.x), ly=py(LN.y);
+    const b6=C[6].on?C[6].b/100:0;
+    if(b6>0){
+      const gln=ctx.createRadialGradient(lx,ly,0,lx,ly,rw*.1);
+      gln.addColorStop(0,`rgba(255,235,160,${b6*.45})`); gln.addColorStop(1,'rgba(255,200,80,0)');
+      ctx.fillStyle=gln; ctx.beginPath(); ctx.arc(lx,ly,rw*.1,0,Math.PI*2); ctx.fill();
     }
-    // Pendant body (oval)
-    ctx.save();
-    ctx.translate(lx, ly);
-    ctx.scale(1.6, 1);
-    ctx.beginPath();
-    ctx.arc(0, 0, S * 0.018, 0, Math.PI * 2);
-    ctx.fillStyle = b > 0 ? `rgba(255,230,160,${0.3 + b * 0.5})` : 'rgba(80,60,40,0.6)';
+    // Oval lantern
+    ctx.save(); ctx.translate(lx,ly); ctx.scale(1.55,1);
+    ctx.beginPath(); ctx.arc(0,0,rw*.028,0,Math.PI*2);
+    ctx.fillStyle=b6>0?`rgba(255,235,170,${.35+b6*.5})`:'rgba(70,58,36,.7)';
     ctx.fill();
-    ctx.strokeStyle = b > 0 ? `rgba(255,210,120,0.9)` : 'rgba(100,80,50,0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.strokeStyle=b6>0?`rgba(255,215,120,.85)`:'rgba(90,72,40,.5)'; ctx.lineWidth=1; ctx.stroke();
     ctx.restore();
-    // Label
-    ctx.fillStyle = 'rgba(200,170,90,0.7)';
-    ctx.font = `${Math.max(8, S * 0.011)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('野口勇', lx, ly + S * 0.03);
+    ctx.fillStyle='rgba(200,170,90,.55)'; ctx.font=`${Math.max(9,rw*.032)}px Noto Sans TC`;
+    ctx.textAlign='center'; ctx.fillText('野口勇',lx,ly+rw*.062);
   }
 
-  // Wall sconce F
+  // Wall sconce (right side near top-right)
   {
-    const lx = rx + sw * 0.07;
-    const ly = ry + sh * 0.88;
-    const c = state.circuits.F;
-    const b = c.on ? c.brightness / 100 : 0;
-    if (b > 0) {
-      const glow = ctx.createRadialGradient(lx, ly, 0, lx + 20, ly, S * 0.05);
-      glow.addColorStop(0, `rgba(255,200,120,${b * 0.5})`);
-      glow.addColorStop(1, 'rgba(255,180,80,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(lx, ly, S * 0.05, 0, Math.PI * 2);
-      ctx.fill();
+    const sx=px(.85), sy=py(.28);
+    const b7=C[7].on?C[7].b/100:0;
+    if(b7>0){
+      const gs=ctx.createRadialGradient(sx,sy,0,sx-rw*.08,sy,rw*.12);
+      gs.addColorStop(0,`rgba(255,200,110,${b7*.5})`); gs.addColorStop(1,'rgba(255,170,60,0)');
+      ctx.fillStyle=gs; ctx.beginPath(); ctx.arc(sx-rw*.04,sy,rw*.1,0,Math.PI*2); ctx.fill();
     }
-    ctx.beginPath();
-    ctx.arc(lx, ly, S * 0.012, 0, Math.PI * 2);
-    ctx.fillStyle = b > 0 ? `rgba(255,210,130,${0.4 + b * 0.5})` : 'rgba(70,55,40,0.7)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(200,150,80,0.7)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(180,140,70,0.6)';
-    ctx.font = `${Math.max(8, S * 0.011)}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.fillText('壁燈', lx + S * 0.015, ly + S * 0.005);
+    ctx.beginPath(); ctx.arc(sx,sy,rw*.018,0,Math.PI*2);
+    ctx.fillStyle=b7>0?`rgba(255,205,125,${.4+b7*.5})`:'rgba(65,50,30,.7)';
+    ctx.fill(); ctx.strokeStyle='rgba(200,155,80,.7)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='rgba(180,145,75,.6)'; ctx.font=`${Math.max(8,rw*.028)}px sans-serif`;
+    ctx.textAlign='right'; ctx.fillText('壁燈',sx-rw*.025,sy+rw*.014);
   }
+
+  // Switch labels
+  ctx.fillStyle='rgba(180,80,80,.6)'; ctx.font=`${Math.max(8,rw*.03)}px sans-serif`;
+  ctx.textAlign='left';
+  // Right S₃ group (circuit 1)
+  ctx.fillText('S₃',px(.88),py(.34)); ctx.fillText('S₃',px(.88),py(.40)); 
+  // Left S₃ group (circuit 3)
+  ctx.fillText('S₃',px(.02),py(.66)); ctx.fillText('S₃',px(.02),py(.72)); ctx.fillText('S₃',px(.02),py(.78));
+  // Bottom S S
+  ctx.fillText('S',px(.32),py(.96)); ctx.fillText('S',px(.42),py(.96));
 
   // Legend
-  const legX = ox + 8, legY = oy + 8;
-  const legItems = [
-    { color: '#e8b860', label: '迴路A 客廳', circuit: 'A' },
-    { color: '#c87830', label: '迴路B 玄關', circuit: 'B' },
-    { color: '#f0a020', label: '迴路C 層板燈', circuit: 'C' },
-    { color: '#d4d890', label: '迴路D 鋁條燈', circuit: 'D' },
-    { color: '#e8d0a0', label: '野口勇吊燈', circuit: 'E' },
-    { color: '#b08060', label: '迴路F 壁燈', circuit: 'F' },
+  const leg=[
+    {col:'#e8c060',lbl:'迴路① 上區',id:1},
+    {col:'#d4a840',lbl:'迴路② 中區',id:2},
+    {col:'#b8902a',lbl:'迴路③ 下區',id:3},
+    {col:'#e07030',lbl:'左牆層板燈',id:4},
+    {col:'#e06020',lbl:'底部層板燈',id:5},
+    {col:'#f0e0a0',lbl:'野口勇 Akari',id:6},
+    {col:'#c09060',lbl:'門口壁燈',id:7},
   ];
-  ctx.font = `${Math.max(9, S*0.013)}px Noto Sans TC, sans-serif`;
-  legItems.forEach((item, i) => {
-    const c = state.circuits[item.circuit];
-    const alpha = c.on ? 1 : 0.3;
-    ctx.fillStyle = item.color;
-    ctx.globalAlpha = alpha;
-    ctx.beginPath();
-    ctx.arc(legX + 6, legY + 12 + i * 18, 5, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(200,180,140,0.8)';
-    ctx.textAlign = 'left';
-    ctx.fillText(item.label, legX + 16, legY + 16 + i * 18);
-    ctx.globalAlpha = 1;
+  ctx.font=`${Math.max(9,rw*.032)}px Noto Sans TC`;
+  leg.forEach((l,i)=>{
+    const a=C[l.id].on?1:.3;
+    ctx.globalAlpha=a;
+    ctx.fillStyle=l.col; ctx.beginPath(); ctx.arc(rx-rw*.52+8,ry+14+i*17,4.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(200,180,130,.85)'; ctx.textAlign='left'; ctx.fillText(l.lbl,rx-rw*.52+18,ry+18+i*17);
+    ctx.globalAlpha=1;
   });
-
-  // Switch group labels
-  ctx.fillStyle = 'rgba(200,160,80,0.3)';
-  ctx.font = `${Math.max(8, S*0.011)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('S₃', rx + sw*0.33, ry + sh*0.48);
-  ctx.fillText('S₃', rx + sw*0.33, ry + sh*0.56);
-  ctx.fillText('S₃', rx + sw*0.33, ry + sh*0.64);
 }
 
-function drawSimulation() {
-  const ctx = simCtx;
-  const W = simW, H = simH;
-  ctx.clearRect(0, 0, W, H);
-
-  // Dark room background
-  ctx.fillStyle = '#0d0a07';
-  ctx.fillRect(0, 0, W, H);
-
-  // Room perspective: floor, back wall, side walls
-  const floorY = H * 0.65;
-  const vanX = W * 0.5, vanY = H * 0.38;
-  const roomW = W * 0.85;
-  const roomLeft = (W - roomW) / 2;
-
-  // Floor
-  const floorGrad = ctx.createLinearGradient(0, floorY, 0, H);
-  floorGrad.addColorStop(0, '#2a2218');
-  floorGrad.addColorStop(1, '#1a1510');
-  ctx.fillStyle = floorGrad;
+function drawWires(ctx,rx,ry,rw,ah){
+  ctx.save();
+  ctx.setLineDash([3,5]);
+  ctx.globalAlpha=.18; ctx.strokeStyle='rgba(200,180,120,1)'; ctx.lineWidth=1;
+  // Circuit 1 top loop
   ctx.beginPath();
-  ctx.moveTo(roomLeft, H);
-  ctx.lineTo(roomLeft, floorY);
-  ctx.lineTo(W - roomLeft, floorY);
-  ctx.lineTo(W - roomLeft, H);
-  ctx.fill();
+  ctx.moveTo(rx+rw*.28,ry+ah*.09);
+  ctx.bezierCurveTo(rx+rw*.28,ry,rx+rw*.80,ry,rx+rw*.72,ry+ah*.20);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.28,ry+ah*.09);
+  ctx.bezierCurveTo(rx+rw*.38,ry+ah*.04,rx+rw*.45,ry+ah*.04,rx+rw*.52,ry+ah*.09);
+  ctx.stroke();
+  // Circuit 2 mid loop
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.25,ry+ah*.38);
+  ctx.bezierCurveTo(rx+rw*.15,ry+ah*.30,rx+rw*.15,ry+ah*.50,rx+rw*.25,ry+ah*.38);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.25,ry+ah*.38);
+  ctx.bezierCurveTo(rx+rw*.38,ry+ah*.35,rx+rw*.55,ry+ah*.35,rx+rw*.63,ry+ah*.42);
+  ctx.stroke();
+  // Circuit 3 lower loop
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.25,ry+ah*.60);
+  ctx.bezierCurveTo(rx+rw*.10,ry+ah*.60,rx+rw*.10,ry+ah*.80,rx+rw*.28,ry+ah*.76);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.25,ry+ah*.60);
+  ctx.bezierCurveTo(rx+rw*.40,ry+ah*.55,rx+rw*.65,ry+ah*.55,rx+rw*.72,ry+ah*.60);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rx+rw*.52,ry+ah*.76);
+  ctx.bezierCurveTo(rx+rw*.62,ry+ah*.78,rx+rw*.72,ry+ah*.78,rx+rw*.72,ry+ah*.76);
+  ctx.stroke();
+  ctx.restore();
+}
 
-  // Back wall
-  const wallGrad = ctx.createLinearGradient(0, 0, 0, floorY);
-  wallGrad.addColorStop(0, '#181410');
-  wallGrad.addColorStop(1, '#201c16');
-  ctx.fillStyle = wallGrad;
-  ctx.beginPath();
-  ctx.moveTo(roomLeft, floorY);
-  ctx.lineTo(vanX - W*0.3, vanY * 0.1);
-  ctx.lineTo(vanX + W*0.3, vanY * 0.1);
-  ctx.lineTo(W - roomLeft, floorY);
-  ctx.fill();
+// ── Simulation drawing ─────────────────────────────────────────────
+function drawSim(){
+  const ctx=sctx;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#08070400'; ctx.fillRect(0,0,W,H);
 
-  // Left wall
-  ctx.fillStyle = '#161210';
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(roomLeft, floorY);
-  ctx.lineTo(vanX - W*0.3, vanY * 0.1);
-  ctx.lineTo(0, 0);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(roomLeft, H);
-  ctx.lineTo(roomLeft, floorY);
-  ctx.fill();
-
-  // Right wall
-  ctx.fillStyle = '#14100e';
-  ctx.beginPath();
-  ctx.moveTo(W, 0);
-  ctx.lineTo(W - roomLeft, floorY);
-  ctx.lineTo(vanX + W*0.3, vanY * 0.1);
-  ctx.lineTo(W, 0);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(W, 0);
-  ctx.lineTo(W - roomLeft, H);
-  ctx.lineTo(W - roomLeft, floorY);
-  ctx.fill();
+  // Perspective room: tall living room, camera at ~sofa level looking toward TV wall
+  const flY=H*.66, ceilY=H*.04;
+  const vanX=W*.48, vanY=H*.30;
+  const lwall=W*.06, rwall=W*.94;
 
   // Ceiling
-  ctx.fillStyle = '#1a1612';
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(W, 0);
-  ctx.lineTo(vanX + W*0.3, vanY*0.1);
-  ctx.lineTo(vanX - W*0.3, vanY*0.1);
-  ctx.fill();
+  ctx.fillStyle='#191610'; ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.lineTo(rwall,ceilY); ctx.lineTo(lwall,ceilY);
+  ctx.closePath(); ctx.fill();
 
-  // TV wall feature - walnut wood panel
-  const tvWallX = vanX - W*0.3 + W*0.02;
-  const tvWallW = W*0.56;
-  const tvWallTop = vanY * 0.1;
-  const tvWallBot = floorY;
+  // Floor
+  const flGrd=ctx.createLinearGradient(0,flY,0,H);
+  flGrd.addColorStop(0,'#252018'); flGrd.addColorStop(1,'#151210');
+  ctx.fillStyle=flGrd; ctx.beginPath();
+  ctx.moveTo(0,H); ctx.lineTo(lwall,flY); ctx.lineTo(rwall,flY); ctx.lineTo(W,H);
+  ctx.closePath(); ctx.fill();
 
-  // Wood panel color
-  ctx.fillStyle = '#3d2818';
-  ctx.fillRect(tvWallX, tvWallTop, tvWallW * 0.28, tvWallBot - tvWallTop);
+  // Left wall
+  ctx.fillStyle='#141210'; ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(lwall,ceilY); ctx.lineTo(lwall,flY); ctx.lineTo(0,H);
+  ctx.closePath(); ctx.fill();
 
-  // Cream wall area for TV
-  ctx.fillStyle = '#2a2420';
-  ctx.fillRect(tvWallX + tvWallW*0.28, tvWallTop, tvWallW*0.72, tvWallBot - tvWallTop);
+  // Right wall
+  ctx.fillStyle='#121010'; ctx.beginPath();
+  ctx.moveTo(W,0); ctx.lineTo(rwall,ceilY); ctx.lineTo(rwall,flY); ctx.lineTo(W,H);
+  ctx.closePath(); ctx.fill();
 
-  // TV cabinet (floating)
-  const cabY = floorY - (tvWallBot - tvWallTop)*0.28;
-  const cabH = (tvWallBot - tvWallTop)*0.12;
-  ctx.fillStyle = '#2e1f0f';
-  ctx.fillRect(tvWallX + tvWallW*0.3, cabY, tvWallW*0.62, cabH);
+  // Back wall (TV wall area)
+  const bwGrd=ctx.createLinearGradient(0,ceilY,0,flY);
+  bwGrd.addColorStop(0,'#1a1713'); bwGrd.addColorStop(1,'#222018');
+  ctx.fillStyle=bwGrd; ctx.beginPath();
+  ctx.moveTo(lwall,ceilY); ctx.lineTo(rwall,ceilY); ctx.lineTo(rwall,flY); ctx.lineTo(lwall,flY);
+  ctx.closePath(); ctx.fill();
 
-  // LED strip under cabinet (Circuit C)
-  if (state.circuits.C.on && state.circuits.C.brightness > 0) {
-    const b = state.circuits.C.brightness / 100;
-    const ledGrad = ctx.createLinearGradient(0, cabY + cabH, 0, floorY);
-    ledGrad.addColorStop(0, `rgba(255,200,80,${b * 0.7})`);
-    ledGrad.addColorStop(0.3, `rgba(255,180,60,${b * 0.3})`);
-    ledGrad.addColorStop(1, `rgba(255,150,40,0)`);
-    ctx.fillStyle = ledGrad;
-    ctx.fillRect(tvWallX + tvWallW*0.3, cabY + cabH, tvWallW*0.62, floorY - cabY - cabH);
+  // Walnut wood panel (left half of back wall)
+  const wpX=lwall, wpW=(rwall-lwall)*.38;
+  ctx.fillStyle='#2e1e0e'; ctx.fillRect(wpX,ceilY,wpW,flY-ceilY);
+  // Wood grain
+  ctx.strokeStyle='rgba(20,10,5,.5)'; ctx.lineWidth=.5;
+  for(let i=0;i<8;i++){ctx.beginPath();ctx.moveTo(wpX+i*(wpW/8),ceilY);ctx.lineTo(wpX+i*(wpW/8),flY);ctx.stroke();}
 
-    // Strip light itself
-    ctx.fillStyle = `rgba(255,220,100,${b})`;
-    ctx.fillRect(tvWallX + tvWallW*0.3, cabY + cabH, tvWallW*0.62, 2);
+  // TV cabinet area
+  const tvCabY=flY-(flY-ceilY)*.28;
+  const tvCabX=wpX+wpW, tvCabW=(rwall-lwall)*.52;
+  ctx.fillStyle='#271a0a'; ctx.fillRect(tvCabX,tvCabY,(rwall-tvCabX),flY-tvCabY);
+
+  // LED strip under cabinet (Circuit 5)
+  if(C[5].on&&C[5].b>0){
+    const b=C[5].b/100;
+    const sg=ctx.createLinearGradient(0,tvCabY+(flY-tvCabY)*.18,0,flY);
+    sg.addColorStop(0,`rgba(255,160,40,${b*.6})`); sg.addColorStop(1,'rgba(255,120,20,0)');
+    ctx.fillStyle=sg; ctx.fillRect(tvCabX,tvCabY+(flY-tvCabY)*.18,(rwall-tvCabX),flY-tvCabY);
+    ctx.fillStyle=`rgba(255,170,50,${b})`; ctx.fillRect(tvCabX,tvCabY+(flY-tvCabY)*.18,(rwall-tvCabX),2);
   }
 
   // TV screen
-  const tvX = tvWallX + tvWallW*0.38;
-  const tvY2 = cabY - (tvWallBot - tvWallTop)*0.38;
-  const tvW = tvWallW * 0.42, tvH2 = (tvWallBot - tvWallTop) * 0.3;
-  ctx.fillStyle = '#080604';
-  ctx.fillRect(tvX, tvY2, tvW, tvH2);
-  ctx.strokeStyle = '#1a1410';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(tvX, tvY2, tvW, tvH2);
+  const tvX=tvCabX+tvCabW*.05, tvW2=tvCabW*.85;
+  const tvY2=ceilY+(flY-ceilY)*.28, tvH2=(flY-ceilY)*.32;
+  ctx.fillStyle='#050403'; ctx.fillRect(tvX,tvY2,tvW2,tvH2);
+  ctx.strokeStyle='#1a150c'; ctx.lineWidth=1; ctx.strokeRect(tvX,tvY2,tvW2,tvH2);
 
-  // Left wall strip (Circuit D)
-  if (state.circuits.D.on && state.circuits.D.brightness > 0) {
-    const b = state.circuits.D.brightness / 100;
-    const stripGrad = ctx.createRadialGradient(roomLeft + 15, H * 0.4, 0, roomLeft + 60, H * 0.4, W * 0.15);
-    stripGrad.addColorStop(0, `rgba(255,210,100,${b * 0.5})`);
-    stripGrad.addColorStop(1, 'rgba(255,180,60,0)');
-    ctx.fillStyle = stripGrad;
-    ctx.fillRect(0, H * 0.1, W * 0.2, H * 0.6);
-    ctx.fillStyle = `rgba(255,200,80,${b})`;
-    ctx.fillRect(roomLeft, H * 0.15, 2, H * 0.52);
+  // Left wall strip (Circuit 4) - glowing left edge
+  if(C[4].on&&C[4].b>0){
+    const b=C[4].b/100;
+    const lg=ctx.createLinearGradient(lwall,0,lwall+W*.15,0);
+    lg.addColorStop(0,`rgba(255,155,35,${b*.55})`); lg.addColorStop(1,'rgba(255,130,20,0)');
+    ctx.fillStyle=lg; ctx.fillRect(lwall,ceilY+(flY-ceilY)*.05,W*.15,(flY-ceilY)*.88);
+    ctx.fillStyle=`rgba(255,148,30,${b})`; ctx.fillRect(lwall,ceilY+(flY-ceilY)*.05,2,(flY-ceilY)*.88);
   }
 
-  // Ceiling recessed lights - Circuit A
-  const cA = state.circuits.A;
-  const aLights = [
-    { cx: 0.38, cy: 0.08 }, { cx: 0.50, cy: 0.08 },
-    { cx: 0.38, cy: 0.05 }, { cx: 0.50, cy: 0.05 },
-    { cx: 0.38, cy: 0.03 }, { cx: 0.50, cy: 0.03 },
-  ].slice(0, cA.count);
+  // ── Ceiling lights ──────────────────────────────────────────────
+  // Define 3 rows of ceiling light positions in perspective
+  // Row ordering: near camera = lower on screen, far = higher
+  // Row A (far / top, Circuit 1): y ~ ceilY+10
+  // Row B (mid, Circuit 2): y ~ ceilY+30
+  // Row C (near, Circuit 3): y ~ ceilY+60–80
 
-  aLights.forEach(l => {
-    const lx = W * l.cx;
-    const ly = H * l.cy;
-    const b = cA.on ? cA.brightness / 100 : 0;
-    const t = colorTemp[cA.color || 'warm'];
+  // Helper: perspective x from normalized plan position
+  const pX=(nx,row)=>{
+    // row 0=far,1=mid,2=near  — converge toward vanX
+    const t=[.82,.60,.30][row]; // t=0 far, t=1 near
+    return vanX+(nx-vanX)*(1-t*.6);
+  };
 
-    // Ceiling hole
-    ctx.fillStyle = '#0a0806';
-    ctx.beginPath();
-    ctx.arc(lx, ly, 6, 0, Math.PI*2);
-    ctx.fill();
+  // Circuit 1 – far row (top of ceiling in perspective)
+  const r1y=ceilY+(H*.018);
+  const r1lights=[];
+  if(C[1].cnt>=1) r1lights.push({nx:lwall+(rwall-lwall)*.32});
+  if(C[1].cnt>=2) r1lights.push({nx:lwall+(rwall-lwall)*.54});
+  if(C[1].cnt>=3) r1lights.push({nx:lwall+(rwall-lwall)*.72});
+  if(C[1].cnt>=4) r1lights.push({nx:lwall+(rwall-lwall)*.20});
+  if(C[1].cnt>=5) r1lights.push({nx:lwall+(rwall-lwall)*.67});
+  if(C[1].cnt>=6) r1lights.push({nx:lwall+(rwall-lwall)*.82});
+  r1lights.forEach(l=>drawCeilLight(ctx,l.nx,r1y,1,flY,H,0));
 
-    if (b > 0) {
-      // Light cone onto floor
-      const coneX = lx + (lx - W*0.5) * 0.3;
-      const coneY = floorY + (H - floorY) * 0.2;
-      const coneGrad = ctx.createRadialGradient(lx, ly, 0, coneX, coneY, H * 0.35);
-      coneGrad.addColorStop(0, `rgba(${t.r},${t.g},${t.b},${b * 0.25})`);
-      coneGrad.addColorStop(0.4, `rgba(${t.r},${t.g},${t.b},${b * 0.12})`);
-      coneGrad.addColorStop(1, `rgba(${t.r},${t.g},${t.b},0)`);
-      ctx.fillStyle = coneGrad;
-      ctx.beginPath();
-      ctx.arc(coneX, coneY, H * 0.35, 0, Math.PI*2);
-      ctx.fill();
+  // Circuit 2 – mid row
+  const r2y=ceilY+(H*.052);
+  const r2lights=[];
+  if(C[2].cnt>=1) r2lights.push({nx:lwall+(rwall-lwall)*.28});
+  if(C[2].cnt>=2) r2lights.push({nx:lwall+(rwall-lwall)*.52});
+  if(C[2].cnt>=3) r2lights.push({nx:lwall+(rwall-lwall)*.70});
+  if(C[2].cnt>=4) r2lights.push({nx:lwall+(rwall-lwall)*.18});
+  if(C[2].cnt>=5) r2lights.push({nx:lwall+(rwall-lwall)*.62});
+  if(C[2].cnt>=6) r2lights.push({nx:lwall+(rwall-lwall)*.80});
+  r2lights.forEach(l=>drawCeilLight(ctx,l.nx,r2y,2,flY,H,1));
 
-      // Bright center glow on ceiling
-      const glowGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 30);
-      glowGrad.addColorStop(0, `rgba(${t.r},${t.g},${t.b},${b * 0.9})`);
-      glowGrad.addColorStop(0.3, `rgba(${t.r},${t.g},${t.b},${b * 0.4})`);
-      glowGrad.addColorStop(1, `rgba(${t.r},${t.g},${t.b},0)`);
-      ctx.fillStyle = glowGrad;
-      ctx.beginPath();
-      ctx.arc(lx, ly, 30, 0, Math.PI*2);
-      ctx.fill();
+  // Circuit 3 – near rows (2 rows)
+  const r3ay=ceilY+(H*.10), r3by=ceilY+(H*.175);
+  const r3alights=[], r3blights=[];
+  if(C[3].cnt>=1) r3alights.push({nx:lwall+(rwall-lwall)*.26});
+  if(C[3].cnt>=2) r3alights.push({nx:lwall+(rwall-lwall)*.50});
+  if(C[3].cnt>=3) r3alights.push({nx:lwall+(rwall-lwall)*.70});
+  if(C[3].cnt>=4) r3blights.push({nx:lwall+(rwall-lwall)*.30});
+  if(C[3].cnt>=5) r3blights.push({nx:lwall+(rwall-lwall)*.52});
+  if(C[3].cnt>=6) r3blights.push({nx:lwall+(rwall-lwall)*.72});
+  if(C[3].cnt>=7) r3alights.push({nx:lwall+(rwall-lwall)*.15});
+  if(C[3].cnt>=8) r3alights.push({nx:lwall+(rwall-lwall)*.82});
+  if(C[3].cnt>=9) r3blights.push({nx:lwall+(rwall-lwall)*.18});
+  r3alights.forEach(l=>drawCeilLight(ctx,l.nx,r3ay,3,flY,H,2));
+  r3blights.forEach(l=>drawCeilLight(ctx,l.nx,r3by,3,flY,H,2.5));
 
-      // Bright dot
-      ctx.fillStyle = `rgba(255,255,240,${b})`;
-      ctx.beginPath();
-      ctx.arc(lx, ly, 3, 0, Math.PI*2);
-      ctx.fill();
-    }
-  });
-
-  // Circuit B lights (smaller, entry area - right side)
-  const cB = state.circuits.B;
-  const bLights = [
-    { cx: 0.74, cy: 0.04 }, { cx: 0.82, cy: 0.04 },
-    { cx: 0.74, cy: 0.07 }, { cx: 0.82, cy: 0.07 },
-  ].slice(0, cB.count);
-
-  bLights.forEach(l => {
-    const lx = W * l.cx;
-    const ly = H * l.cy;
-    const b = cB.on ? cB.brightness / 100 : 0;
-    const t = colorTemp[cB.color || 'warm'];
-
-    ctx.fillStyle = '#0a0806';
-    ctx.beginPath();
-    ctx.arc(lx, ly, 5, 0, Math.PI*2);
-    ctx.fill();
-
-    if (b > 0) {
-      const coneGrad = ctx.createRadialGradient(lx, ly + 30, 0, lx, floorY, H * 0.28);
-      coneGrad.addColorStop(0, `rgba(${t.r},${t.g},${t.b},${b * 0.2})`);
-      coneGrad.addColorStop(1, `rgba(${t.r},${t.g},${t.b},0)`);
-      ctx.fillStyle = coneGrad;
-      ctx.beginPath();
-      ctx.arc(lx, floorY, H * 0.28, 0, Math.PI*2);
-      ctx.fill();
-
-      ctx.fillStyle = `rgba(255,255,240,${b})`;
-      ctx.beginPath();
-      ctx.arc(lx, ly, 2.5, 0, Math.PI*2);
-      ctx.fill();
-    }
-  });
-
-  // Noguchi pendant (E)
+  // ── Noguchi Akari 45A ───────────────────────────────────────────
   {
-    const cE = state.circuits.E;
-    const b = cE.on ? cE.brightness / 100 : 0;
-    const lx = W * 0.28, ly = H * 0.32;
-    const pendR = Math.min(W, H) * 0.055;
+    const b6=C[6].on?C[6].b/100:0;
+    // Pendant position: center-left, hanging low in front area
+    const px6=lwall+(rwall-lwall)*.35, py6=flY-(flY-ceilY)*.40;
+    const pr=H*.065;
 
-    // Pendant wire
-    ctx.strokeStyle = 'rgba(100,80,50,0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(lx, 0);
-    ctx.lineTo(lx, ly - pendR);
-    ctx.stroke();
+    // Wire
+    ctx.strokeStyle='rgba(90,70,40,.5)'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.moveTo(px6,ceilY+H*.025); ctx.lineTo(px6,py6-pr); ctx.stroke();
 
-    // Noguchi paper lantern glow
-    if (b > 0) {
-      const outerGlow = ctx.createRadialGradient(lx, ly, 0, lx, ly, pendR * 4);
-      outerGlow.addColorStop(0, `rgba(255,230,160,${b * 0.3})`);
-      outerGlow.addColorStop(1, 'rgba(255,200,80,0)');
-      ctx.fillStyle = outerGlow;
-      ctx.beginPath();
-      ctx.ellipse(lx, ly, pendR * 4, pendR * 3, 0, 0, Math.PI*2);
-      ctx.fill();
-
-      // Light pool on floor
-      const floorPool = ctx.createRadialGradient(lx, floorY, 0, lx, floorY, H * 0.25);
-      floorPool.addColorStop(0, `rgba(255,220,140,${b * 0.4})`);
-      floorPool.addColorStop(0.5, `rgba(255,200,100,${b * 0.15})`);
-      floorPool.addColorStop(1, 'rgba(255,180,60,0)');
-      ctx.fillStyle = floorPool;
-      ctx.beginPath();
-      ctx.ellipse(lx, floorY, H * 0.25, H * 0.06, 0, 0, Math.PI*2);
-      ctx.fill();
+    if(b6>0){
+      // Outer ambient glow
+      const ag=ctx.createRadialGradient(px6,py6,0,px6,py6,pr*4.5);
+      ag.addColorStop(0,`rgba(255,230,155,${b6*.28})`); ag.addColorStop(1,'rgba(255,200,80,0)');
+      ctx.fillStyle=ag; ctx.beginPath(); ctx.ellipse(px6,py6,pr*4.5,pr*3,0,0,Math.PI*2); ctx.fill();
+      // Floor pool
+      const fp=ctx.createRadialGradient(px6,flY,0,px6,flY,H*.22);
+      fp.addColorStop(0,`rgba(255,220,130,${b6*.42})`);
+      fp.addColorStop(.5,`rgba(255,200,100,${b6*.18})`);
+      fp.addColorStop(1,'rgba(255,180,60,0)');
+      ctx.fillStyle=fp; ctx.beginPath(); ctx.ellipse(px6,flY,H*.22,H*.055,0,0,Math.PI*2); ctx.fill();
     }
 
-    // Paper lantern body
-    ctx.save();
-    ctx.translate(lx, ly);
-    ctx.scale(1, 1.4);
-    const bodyGrad = ctx.createRadialGradient(pendR * 0.2, -pendR * 0.1, 0, 0, 0, pendR);
-    if (b > 0) {
-      bodyGrad.addColorStop(0, `rgba(255,240,200,${0.6 + b * 0.3})`);
-      bodyGrad.addColorStop(0.6, `rgba(255,210,140,${0.3 + b * 0.4})`);
-      bodyGrad.addColorStop(1, `rgba(200,160,80,${0.2 + b * 0.2})`);
+    // Lantern body
+    ctx.save(); ctx.translate(px6,py6); ctx.scale(1,1.35);
+    const bg=ctx.createRadialGradient(pr*.22,-pr*.12,0,0,0,pr);
+    if(b6>0){
+      bg.addColorStop(0,`rgba(255,245,205,${.55+b6*.35})`);
+      bg.addColorStop(.65,`rgba(255,215,140,${.28+b6*.42})`);
+      bg.addColorStop(1,`rgba(200,155,70,${.18+b6*.22})`);
     } else {
-      bodyGrad.addColorStop(0, 'rgba(80,65,45,0.6)');
-      bodyGrad.addColorStop(1, 'rgba(50,40,25,0.4)');
+      bg.addColorStop(0,'rgba(72,58,36,.6)'); bg.addColorStop(1,'rgba(45,35,18,.4)');
     }
-    ctx.fillStyle = bodyGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, pendR, 0, Math.PI*2);
-    ctx.fill();
-    // Ribs
-    if (b > 0) {
-      ctx.strokeStyle = `rgba(180,140,80,${b * 0.3})`;
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(a) * pendR, Math.sin(a) * pendR);
-        ctx.stroke();
-      }
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(0,0,pr,0,Math.PI*2); ctx.fill();
+    if(b6>0){
+      ctx.strokeStyle=`rgba(180,140,75,${b6*.25})`; ctx.lineWidth=.5;
+      for(let i=0;i<10;i++){const a=i/10*Math.PI*2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*pr,Math.sin(a)*pr);ctx.stroke();}
     }
     ctx.restore();
 
-    // Label
-    ctx.fillStyle = 'rgba(200,170,100,0.5)';
-    ctx.font = `${Math.max(9, H*0.015)}px Noto Sans TC, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('Akari 45A', lx, ly + pendR * 1.6 + 14);
+    ctx.fillStyle='rgba(200,168,95,.45)';
+    ctx.font=`${Math.max(9,H*.016)}px Noto Sans TC`; ctx.textAlign='center';
+    ctx.fillText('Akari 45A',px6,py6+pr*1.55+12);
   }
 
-  // Wall sconce F
+  // ── Wall sconce ─────────────────────────────────────────────────
   {
-    const cF = state.circuits.F;
-    const b = cF.on ? cF.brightness / 100 : 0;
-    const sx = roomLeft + 20, sy = H * 0.5;
-
-    if (b > 0) {
-      const sGrad = ctx.createRadialGradient(sx + 10, sy, 0, sx + 60, sy, W * 0.12);
-      sGrad.addColorStop(0, `rgba(255,200,100,${b * 0.6})`);
-      sGrad.addColorStop(1, 'rgba(255,170,60,0)');
-      ctx.fillStyle = sGrad;
-      ctx.beginPath();
-      ctx.arc(sx + 40, sy, W * 0.1, 0, Math.PI*2);
-      ctx.fill();
+    const b7=C[7].on?C[7].b/100:0;
+    const sx=lwall+W*.02, sy=ceilY+(flY-ceilY)*.48;
+    if(b7>0){
+      const wg=ctx.createRadialGradient(sx+14,sy,0,sx+55,sy,W*.11);
+      wg.addColorStop(0,`rgba(255,200,105,${b7*.6})`); wg.addColorStop(1,'rgba(255,165,55,0)');
+      ctx.fillStyle=wg; ctx.beginPath(); ctx.arc(sx+35,sy,W*.09,0,Math.PI*2); ctx.fill();
     }
-    ctx.fillStyle = b > 0 ? `rgba(255,200,120,${0.5 + b * 0.4})` : 'rgba(60,45,30,0.6)';
-    ctx.fillRect(sx - 4, sy - 10, 8, 20);
-    ctx.fillStyle = b > 0 ? `rgba(255,220,150,${b * 0.8})` : 'rgba(50,40,25,0.5)';
-    ctx.beginPath();
-    ctx.arc(sx + 4, sy, 8, -Math.PI/2, Math.PI/2);
-    ctx.fill();
+    ctx.fillStyle=b7>0?`rgba(255,200,120,${.45+b7*.45})`:'rgba(55,42,24,.6)';
+    ctx.fillRect(sx-3,sy-9,6,18);
+    ctx.beginPath(); ctx.arc(sx+5,sy,7,Math.PI/2*3,Math.PI/2);
+    ctx.fillStyle=b7>0?`rgba(255,225,155,${b7*.85})`:'rgba(45,35,18,.5)'; ctx.fill();
   }
 
-  // Sofa silhouette
-  ctx.fillStyle = 'rgba(45,38,28,0.9)';
-  const sofaX = W * 0.62, sofaY = floorY;
-  ctx.fillRect(sofaX, sofaY - H * 0.12, W * 0.28, H * 0.12);
-  ctx.fillRect(sofaX - W * 0.02, sofaY - H * 0.16, W * 0.02, H * 0.16);
-  ctx.fillRect(sofaX + W * 0.28, sofaY - H * 0.16, W * 0.02, H * 0.16);
-
+  // ── Furniture silhouettes ───────────────────────────────────────
+  // Sofa (right side, foreground)
+  const sfX=rwall-(rwall-lwall)*.38, sfW=(rwall-lwall)*.32, sfY=flY;
+  ctx.fillStyle='rgba(42,35,24,.95)';
+  ctx.fillRect(sfX,sfY-H*.14,sfW,H*.14);
+  ctx.fillRect(sfX-W*.018,sfY-H*.19,W*.018,H*.19);
+  ctx.fillRect(sfX+sfW,sfY-H*.19,W*.018,H*.19);
   // Coffee table
-  ctx.fillStyle = 'rgba(60,40,20,0.8)';
-  ctx.fillRect(W * 0.52, floorY - H * 0.03, W * 0.14, H * 0.03);
+  ctx.fillStyle='rgba(55,38,18,.9)';
+  ctx.fillRect(sfX+sfW*.1,sfY-H*.04,(rwall-lwall)*.18,H*.04);
+  // Plant
+  ctx.fillStyle='rgba(28,36,22,.8)'; ctx.beginPath();
+  ctx.ellipse(rwall-(rwall-lwall)*.08,sfY-H*.14,W*.022,H*.11,-.1,0,Math.PI*2); ctx.fill();
 
-  // Info overlay
-  const activeCircuits = Object.entries(state.circuits).filter(([,c]) => c.on);
-  ctx.fillStyle = 'rgba(200,170,110,0.5)';
-  ctx.font = `${Math.max(9, H*0.014)}px Noto Sans TC, sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.fillText(`${activeCircuits.length} 個迴路開啟`, 20, H - 20);
+  // Status
+  const active=Object.values(C).filter(c=>c.on).length;
+  ctx.fillStyle='rgba(200,172,108,.45)'; ctx.font=`${Math.max(9,H*.014)}px Noto Sans TC`; ctx.textAlign='left';
+  ctx.fillText(`${active} 個迴路開啟`,lwall+8,H-14);
 }
 
-function render() {
-  if (currentView === 'plan') drawPlan();
-  else drawSimulation();
+function drawCeilLight(ctx,cx,cy,cid,flY,H,rowScale){
+  const c=C[cid]; const b=c.on?c.b/100:0;
+  const t=CT[c.col||'warm']; const r=Math.max(3.5,H*.009);
+
+  if(b>0){
+    // Ceiling bright spot
+    const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,r*3);
+    cg.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.85})`);
+    cg.addColorStop(.4,`rgba(${t.r},${t.g},${t.b},${b*.3})`);
+    cg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(cx,cy,r*3,0,Math.PI*2); ctx.fill();
+
+    // Light cone to floor (elliptical pool)
+    const coneR=H*(0.18+rowScale*.05);
+    const floorY2=flY+(H-flY)*.15;
+    const fg=ctx.createRadialGradient(cx,floorY2,0,cx,floorY2,coneR);
+    fg.addColorStop(0,`rgba(${t.r},${t.g},${t.b},${b*.22})`);
+    fg.addColorStop(.4,`rgba(${t.r},${t.g},${t.b},${b*.09})`);
+    fg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=fg; ctx.beginPath();
+    ctx.ellipse(cx,floorY2,coneR,coneR*.28,0,0,Math.PI*2); ctx.fill();
+  }
+
+  // Fixture dot
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle=b>0?`rgba(255,255,240,${b})`:'rgba(40,34,20,.8)'; ctx.fill();
 }
 
-function toggleCircuit(id) {
-  const c = state.circuits[id];
-  c.on = !c.on;
-  const btn = document.getElementById('toggle-' + id);
-  btn.textContent = c.on ? 'ON' : 'OFF';
-  btn.className = 'toggle-btn' + (c.on ? ' on' : '');
+// ── Controls ───────────────────────────────────────────────────────
+function render(){view==='plan'?drawPlan():drawSim();}
+
+function tog(id){
+  C[id].on=!C[id].on;
+  const s=document.getElementById('sw'+id);
+  s.textContent=C[id].on?'ON':'OFF'; s.className='sw'+(C[id].on?' on':'');
+  document.getElementById('card'+id).className='card'+(C[id].on?' on':'');
   render();
 }
-
-function updateBrightness(id) {
-  const slider = document.getElementById('bright-' + id);
-  const val = parseInt(slider.value);
-  state.circuits[id].brightness = val;
-  document.getElementById('bval-' + id).textContent = val + '%';
-  render();
+function upd(id){
+  const v=+document.getElementById('br'+id).value;
+  C[id].b=v; document.getElementById('bv'+id).textContent=v+'%'; render();
 }
-
-function setColor(id, color) {
-  state.circuits[id].color = color;
-  ['warm','neutral','cool'].forEach(c => {
-    const btn = document.getElementById('c' + id + '-' + c);
-    if (btn) btn.className = 'color-btn' + (c === color ? ' active' : '');
+function chg(id,d){
+  if(!C[id].cnt) return;
+  C[id].cnt=Math.max(1,Math.min(C[id].max,C[id].cnt+d));
+  document.getElementById('cnt'+id).textContent=C[id].cnt; render();
+}
+function kc(id,col){
+  C[id].col=col;
+  ['warm','neu','cool'].forEach(c=>{
+    const el=document.getElementById('k'+id+c[0]);
+    if(el) el.className='kb'+(c===col?' on':'');
   });
   render();
 }
-
-function changeCount(id, delta) {
-  const c = state.circuits[id];
-  const maxCounts = { A: 8, B: 6 };
-  const max = maxCounts[id] || 1;
-  const arr = id === 'A' ? planLights.A : planLights.B;
-  c.count = Math.max(1, Math.min(max, c.count + delta));
-
-  // Add default positions if needed
-  while (arr.length < c.count) {
-    const row = Math.floor(arr.length / 2);
-    const col = arr.length % 2;
-    arr.push({ x: 0.35 + col * 0.17, y: 0.25 + row * 0.18 });
-  }
-
-  document.getElementById('count-' + id).textContent = c.count;
+function sv(v){
+  view=v;
+  document.getElementById('pc').style.display=v==='plan'?'block':'none';
+  document.getElementById('sc').style.display=v==='sim'?'block':'none';
+  document.getElementById('t1').className='tab'+(v==='plan'?' on':'');
+  document.getElementById('t2').className='tab'+(v==='sim'?' on':'');
+  document.getElementById('ht').textContent=v==='plan'?'拖曳崁燈可調整位置 · 雙擊刪除':'即時燈光透視模擬';
   render();
 }
-
-function setScene(scene) {
-  const scenes = {
-    full: { A: [true,80], B: [true,80], C: [true,70], D: [true,60], E: [true,80], F: [true,70] },
-    relax: { A: [true,40], B: [false,0], C: [true,50], D: [true,40], E: [true,60], F: [true,50] },
-    dim: { A: [false,0], B: [false,0], C: [false,0], D: [true,20], E: [false,0], F: [true,30] },
-    off: { A: [false,0], B: [false,0], C: [false,0], D: [false,0], E: [false,0], F: [false,0] },
+function scene(s){
+  const sc2={
+    all: {1:[true,85],2:[true,85],3:[true,85],4:[true,65],5:[true,60],6:[true,80],7:[true,70]},
+    relax:{1:[true,45],2:[true,35],3:[false,0],4:[true,45],5:[true,40],6:[true,70],7:[true,55]},
+    dim:  {1:[false,0],2:[false,0],3:[false,0],4:[true,20],5:[false,0],6:[false,0],7:[true,30]},
+    off:  {1:[false,0],2:[false,0],3:[false,0],4:[false,0],5:[false,0],6:[false,0],7:[false,0]},
   };
-  const s = scenes[scene];
-  Object.entries(s).forEach(([id, [on, bright]]) => {
-    state.circuits[id].on = on;
-    state.circuits[id].brightness = bright;
-    const btn = document.getElementById('toggle-' + id);
-    btn.textContent = on ? 'ON' : 'OFF';
-    btn.className = 'toggle-btn' + (on ? ' on' : '');
-    document.getElementById('bright-' + id).value = bright;
-    document.getElementById('bval-' + id).textContent = bright + '%';
+  Object.entries(sc2[s]).forEach(([id,[on,b]])=>{
+    C[id].on=on; C[id].b=b;
+    const sw=document.getElementById('sw'+id);
+    sw.textContent=on?'ON':'OFF'; sw.className='sw'+(on?' on':'');
+    document.getElementById('card'+id).className='card'+(on?' on':'');
+    document.getElementById('br'+id).value=b;
+    document.getElementById('bv'+id).textContent=b+'%';
   });
   render();
 }
 
-function switchView(v) {
-  currentView = v;
-  planCanvas.style.display = v === 'plan' ? 'block' : 'none';
-  simCanvas.style.display = v === 'sim' ? 'block' : 'none';
-  document.getElementById('tab-plan').className = 'view-tab' + (v === 'plan' ? ' active' : '');
-  document.getElementById('tab-sim').className = 'view-tab' + (v === 'sim' ? ' active' : '');
-  document.getElementById('hint-text').textContent = v === 'plan' ? '拖曳崁燈可移動位置 · 雙擊刪除' : '即時燈光模擬視圖';
-  render();
-}
-
-// Drag for plan view
-let dragLight = null;
-planCanvas.addEventListener('mousedown', e => {
-  if (currentView !== 'plan') return;
-  const rect = planCanvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const S = Math.min(planW, planH);
-  const ox = (planW - S * 0.92) / 2, oy = (planH - S * 0.85) / 2;
-  const sw = S * 0.92, sh = S * 0.85;
-  const r = Math.max(6, S * 0.012) * 1.5;
-
-  for (const [cid, lights] of Object.entries(planLights)) {
-    const count = cid === 'A' ? state.circuits.A.count : cid === 'B' ? state.circuits.B.count : 1;
-    const arr = lights.slice(0, count);
-    for (let i = 0; i < arr.length; i++) {
-      const lx = ox + arr[i].x * sw;
-      const ly = oy + arr[i].y * sh;
-      if (Math.hypot(mx - lx, my - ly) < r) {
-        dragLight = { cid, idx: i };
-        return;
-      }
-    }
-  }
+// ── Drag on plan ───────────────────────────────────────────────────
+let dg=null;
+pc.addEventListener('mousedown',e=>{
+  if(view!=='plan') return;
+  const rect=pc.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const rw2=Math.min(W-40,(H-40)*.58), ah2=Math.min(rw2/.58,H-40);
+  const rx2=(W-rw2)/2, ry2=(H-ah2)/2;
+  const r=Math.max(5,rw2*.024)*1.8;
+  const px2=x=>rx2+x*rw2, py2=y=>ry2+y*ah2;
+  const check=(arr,cid)=>{
+    for(let i=0;i<arr.length;i++){
+      if(i>=(C[cid].cnt??arr.length)) break;
+      if(Math.hypot(mx-px2(arr[i].x),my-py2(arr[i].y))<r){dg={arr,i,rx2,ry2,rw2,ah2};return true;}
+    } return false;
+  };
+  check(L1,1)||check(L2,2)||check(L3,3);
+  // Also Noguchi
+  if(!dg&&Math.hypot(mx-px2(LN.x),my-py2(LN.y))<r*1.3) dg={arr:null,noguchi:true,rx2,ry2,rw2,ah2};
 });
-
-planCanvas.addEventListener('mousemove', e => {
-  if (!dragLight || currentView !== 'plan') return;
-  const rect = planCanvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const S = Math.min(planW, planH);
-  const ox = (planW - S * 0.92) / 2, oy = (planH - S * 0.85) / 2;
-  const sw = S * 0.92, sh = S * 0.85;
-  planLights[dragLight.cid][dragLight.idx].x = (mx - ox) / sw;
-  planLights[dragLight.cid][dragLight.idx].y = (my - oy) / sh;
+pc.addEventListener('mousemove',e=>{
+  if(!dg||view!=='plan') return;
+  const rect=pc.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const {rx2,ry2,rw2,ah2}=dg;
+  const nx=(mx-rx2)/rw2, ny=(my-ry2)/ah2;
+  if(dg.noguchi){LN.x=nx;LN.y=ny;}
+  else{dg.arr[dg.i].x=nx; dg.arr[dg.i].y=ny;}
   render();
 });
-
-planCanvas.addEventListener('mouseup', () => { dragLight = null; });
-planCanvas.addEventListener('mouseleave', () => { dragLight = null; });
-
-planCanvas.addEventListener('dblclick', e => {
-  if (currentView !== 'plan') return;
-  const rect = planCanvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const S = Math.min(planW, planH);
-  const ox = (planW - S * 0.92) / 2, oy = (planH - S * 0.85) / 2;
-  const sw = S * 0.92, sh = S * 0.85;
-  const r = Math.max(6, S * 0.012) * 1.5;
-
-  for (const [cid, lights] of Object.entries(planLights)) {
-    const count = cid === 'A' ? state.circuits.A.count : cid === 'B' ? state.circuits.B.count : 1;
-    for (let i = 0; i < count; i++) {
-      const lx = ox + lights[i].x * sw;
-      const ly = oy + lights[i].y * sh;
-      if (Math.hypot(mx - lx, my - ly) < r && (cid === 'A' || cid === 'B')) {
-        lights.splice(i, 1);
-        if (cid === 'A') state.circuits.A.count = Math.max(1, state.circuits.A.count - 1);
-        if (cid === 'B') state.circuits.B.count = Math.max(1, state.circuits.B.count - 1);
-        document.getElementById('count-' + cid).textContent = state.circuits[cid].count;
-        render();
-        return;
+pc.addEventListener('mouseup',()=>dg=null);
+pc.addEventListener('mouseleave',()=>dg=null);
+pc.addEventListener('dblclick',e=>{
+  if(view!=='plan') return;
+  const rect=pc.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const rw2=Math.min(W-40,(H-40)*.58), ah2=Math.min(rw2/.58,H-40);
+  const rx2=(W-rw2)/2, ry2=(H-ah2)/2;
+  const r=Math.max(5,rw2*.024)*1.8;
+  const px2=x=>rx2+x*rw2, py2=y=>ry2+y*ah2;
+  [[L1,1],[L2,2],[L3,3]].forEach(([arr,cid])=>{
+    const lim=C[cid].cnt??arr.length;
+    for(let i=0;i<lim;i++){
+      if(Math.hypot(mx-px2(arr[i].x),my-py2(arr[i].y))<r){
+        arr.splice(i,1); C[cid].cnt=Math.max(1,(C[cid].cnt||1)-1);
+        document.getElementById('cnt'+cid).textContent=C[cid].cnt;
+        render(); return;
       }
     }
-  }
+  });
 });
 
-window.addEventListener('resize', resize);
+window.addEventListener('resize',resize);
 resize();
 </script>
 </body>
